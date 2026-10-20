@@ -123,6 +123,9 @@ aside ul{padding-left:1.2em;margin:.3em 0}
   .search input{width:100%}
   aside{border-left:none;border-top:1px solid var(--line);padding:16px}
 }
+html.embed .countdown,html.embed .brand small{display:none}
+html.embed header{padding:6px 12px;gap:8px 14px}
+@media (max-width:860px){ html.embed .stats{display:none} }
 </style>
 </head>
 <body>
@@ -180,6 +183,10 @@ $("hotBtn").textContent = `常考（≥${M.hotMin} 次）`;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function load(k){ try { return JSON.parse(localStorage.getItem(k)) || {}; } catch(e){ return {}; } }
 function save(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+// 被陪讀手機版用 iframe 內嵌時，把目前考點與作答送給上層（src 固定 "l23-map"，陪讀端認這個值）
+const EMBED = window.parent !== window;
+if (EMBED) document.documentElement.classList.add("embed");
+function emit(msg){ if (!EMBED) return; try { window.parent.postMessage(Object.assign({src: "l23-map"}, msg), "*"); } catch(e){} }
 
 let progress = load(KEY_P);   // id -> 0/1/2
 let quizLog = load(KEY_Q);    // id -> {qi: "ok"}
@@ -431,6 +438,7 @@ function select(id){
 
 function showHome(){
   select(null);
+  emit({type: "home"});
   const total = D.examTotal;
   panel.innerHTML = `
     <h2>使用方式</h2>
@@ -468,9 +476,18 @@ function showSection(sid){
   panel.scrollTop = 0;
 }
 
+function topicPayload(t){
+  const s = secById[t.section];
+  return {id: t.id, title: t.title, section: s.id, sectionName: s.name, chapter: D.chapters[s.chapter] || "",
+    examHits: t.examHits || 0, examRefs: t.examRefs || [], guidePages: t.guidePages || "",
+    summary: t.summary || "", keyPoints: t.keyPoints || [], trap: t.trap || "",
+    related: (nbrs[t.id] || []).slice(0, 5).map(n => ({title: byId[n.id].title, why: n.why || ""})),
+    quiz: (t.quiz || []).map(q => ({stem: q.stem, options: q.options, answer: q.answer, hint: q.hint || "", explanation: q.explanation || "", source: q.source || ""}))};
+}
 function openTopic(id, fly){
   const t = topics.find(x => x.id === id); if (!t) return;
   select(id);
+  emit({type: "topic", topic: topicPayload(t)});
   if (fly) zoomTo(t._x, t._y, Math.max(Math.min(view.w, 700), 360));
   const s = secById[t.section], c = COLORS[s.chapter], st = progress[id] || 0;
   panel.innerHTML = `<button class="back">← ${s.id === "X" ? "" : esc(s.id) + " "}${esc(s.name)}</button>
@@ -508,9 +525,11 @@ function renderQuiz(t, q, qi){
     opts[q.answer].classList.add("right");
     const exp = String(q.explanation || "").replace(/^\s*(答案|正解)\s*[:：]?\s*[\(（]?[A-D][\)）]?\s*[。．.，,：:]?\s*/, "");
     fb.innerHTML = `<div class="exp"><b>答案 (${L[q.answer]})</b>　${esc(exp)}</div>`;
+    emit({type: "reveal", topicId: t.id, qi});
   };
   opts.forEach(b => b.onclick = () => {
     const i = +b.dataset.i; tries++;
+    emit({type: "answer", topicId: t.id, qi, picked: i, correct: i === q.answer, tries});
     if (i === q.answer) {
       b.classList.add("right"); opts.forEach(x => x.disabled = true);
       (quizLog[t.id] = quizLog[t.id] || {})[qi] = "ok"; save(KEY_Q, quizLog);
