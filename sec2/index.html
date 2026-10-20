@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>資安星圖</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23ffd36b'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#0d1222; --bg2:#141b31; --panel:#161e36; --line:#2a3558; --text:#e6ebf7; --muted:#8e9ac0;
+  --trap:#f58a8a;
+  --ok:#5fd38d; --bad:#f07575; --accent:#ffd36b;
+  --pz:1.15; --pw:400px; --mh:55vh;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow-x:hidden;background:var(--bg);color:var(--text);
+  font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif;font-size:15px}
+button{font:inherit;color:inherit;cursor:pointer}
+#app{display:grid;grid-template-rows:auto 1fr;grid-template-columns:1fr 10px var(--pw);height:100vh}
+header{grid-column:1/4;display:flex;align-items:center;gap:18px;padding:10px 18px;
+  background:var(--bg2);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand small{display:block;color:var(--muted);font-size:12px;letter-spacing:.06em}
+.brand b{font-size:20px;letter-spacing:.08em;color:var(--accent)}
+.stats{display:flex;gap:14px;flex:1;flex-wrap:wrap;min-width:0}
+.stat{min-width:92px}
+.stat .lbl{font-size:12px;color:var(--muted);white-space:nowrap}
+.stat .bar{height:5px;background:var(--line);border-radius:3px;margin-top:4px;overflow:hidden}
+.stat .bar i{display:block;height:100%;width:0;border-radius:3px;transition:width .3s}
+.stat .pct{font-size:13px;font-weight:700}
+.search{position:relative}
+.search input{background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:8px;
+  padding:7px 10px;width:200px;font:inherit}
+.results{position:absolute;top:110%;left:0;right:0;background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;z-index:20;max-height:320px;overflow:auto;display:none;min-width:240px}
+.results div{padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--line);font-size:14px}
+.results div:hover{background:var(--line)}
+.results span{color:var(--muted);font-size:12px;margin-left:6px}
+.countdown{text-align:center;line-height:1.1}
+.countdown b{font-size:26px;color:var(--accent)}
+.countdown small{display:block;font-size:11px;color:var(--muted)}
+.fsz{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.fsz button{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 11px;font-size:15px;font-weight:700;min-width:44px}
+.fsz button:hover{border-color:var(--muted)}
+#rs{background:var(--bg2);border-left:1px solid var(--line);cursor:col-resize;touch-action:none;position:relative}
+#rs::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:48px;margin:-24px 0 0 -2px;border-radius:2px;background:var(--muted);opacity:.6}
+#rs:hover::after,#rs.drag::after{background:var(--accent);opacity:1}
+
+#mapWrap{position:relative;overflow:hidden;touch-action:none;
+  background:radial-gradient(ellipse at 40% 35%,#18213f 0%,var(--bg) 70%)}
+svg#map{width:100%;height:100%;display:block;cursor:grab;user-select:none}
+svg#map.dragging{cursor:grabbing}
+.sec-ring{fill-opacity:.07;stroke-opacity:.45;stroke-width:1.5;stroke-dasharray:4 5}
+.sec-label{font-size:17px;font-weight:700;letter-spacing:.05em;paint-order:stroke;stroke:var(--bg);stroke-width:5px;cursor:pointer}
+.sec-label tspan.no{font-size:13px;opacity:.75}
+.edge{stroke:#a9b8e6;stroke-opacity:.17;stroke-width:1.1;transition:stroke-opacity .15s}
+.edge.hl{stroke:var(--accent);stroke-opacity:.9;stroke-width:2}
+svg.focus .edge:not(.hl){stroke-opacity:.06}
+svg.focus .node:not(.nb):not(.dim){opacity:.35}
+.node{cursor:pointer}
+.node circle.dot{stroke-width:2.2;transition:fill-opacity .2s}
+.node circle.halo{fill:none;stroke-width:2;opacity:0}
+.node.sel circle.halo{opacity:1;stroke:var(--accent)}
+.node text{font-size:11.5px;fill:var(--text);text-anchor:middle;paint-order:stroke;stroke:var(--bg);stroke-width:4px;pointer-events:none}
+svg.far .node.small text{display:none}
+.node.dim{opacity:.13}
+.node:hover circle.dot{stroke:#fff}
+.mapbtns{position:absolute;left:14px;bottom:14px;display:flex;flex-direction:column;gap:6px}
+.mapbtns button,.filters button{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px}
+.mapbtns button:hover,.filters button:hover{border-color:var(--muted)}
+.filters{position:absolute;right:14px;bottom:14px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.filters button.on{background:var(--accent);color:#1b1b1b;border-color:var(--accent);font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:calc(var(--u) * .867);color:var(--muted)}
+.legend .sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;box-sizing:border-box}
+
+aside{--u:calc(15px * var(--pz));font-size:var(--u);background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:18px 20px 40px;min-width:0}
+aside h2{margin:.2em 0 .3em;font-size:calc(var(--u) * 1.4);line-height:1.35}
+aside h3{font-size:calc(var(--u) * .933);color:var(--muted);margin:1.4em 0 .5em;letter-spacing:.08em}
+aside p,aside li{line-height:1.75}
+aside ul{padding-left:1.2em;margin:.3em 0}
+.crumb{font-size:calc(var(--u) * .8);color:var(--muted)}
+.chip{display:inline-block;font-size:calc(var(--u) * .8);border-radius:999px;padding:2px 9px;margin:3px 4px 0 0;border:1px solid var(--line);color:var(--muted)}
+.chip.hot{background:rgba(255,211,107,.15);border-color:var(--accent);color:var(--accent)}
+.trap{background:rgba(245,138,138,.1);border-left:3px solid var(--trap);padding:8px 12px;border-radius:4px;line-height:1.7}
+.prog{display:flex;gap:6px;margin-top:12px}
+.prog button{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 0;font-size:calc(var(--u) * .867)}
+.prog button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+.tip{font-size:calc(var(--u) * .8);color:var(--muted);margin-top:6px}
+.quiz{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0}
+.quiz .stem{line-height:1.75;margin-bottom:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+.opt,.fb .exp{white-space:pre-wrap;overflow-wrap:anywhere}
+.quiz .src{font-size:calc(var(--u) * .733);color:var(--muted);float:right}
+.opt{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;margin:6px 0;line-height:1.6}
+.opt:hover:not(:disabled){border-color:var(--muted)}
+.opt.wrong{border-color:var(--bad);background:rgba(240,117,117,.12)}
+.opt.right{border-color:var(--ok);background:rgba(95,211,141,.14)}
+.opt:disabled{cursor:default}
+.fb{margin-top:8px;line-height:1.7;font-size:calc(var(--u) * .933)}
+.fb .hint{color:var(--accent)}
+.fb .exp{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}
+.linkbtn{background:none;border:none;color:var(--accent);text-decoration:underline;padding:0;font-size:calc(var(--u) * .867)}
+.back{background:none;border:none;color:var(--muted);padding:0;font-size:calc(var(--u) * .867);margin-bottom:6px}
+.seclist div{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer;font-size:calc(var(--u) * .933)}
+.seclist div:hover{color:var(--accent)}
+.seclist .n{color:var(--muted);font-size:calc(var(--u) * .8);white-space:nowrap;margin-left:8px}
+.rel div{padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer;line-height:1.55}
+.rel div:hover b{text-decoration:underline}
+.rel span{display:block;font-size:calc(var(--u) * .867);color:var(--muted)}
+.empty{color:var(--muted);text-align:center;margin-top:40px}
+
+@media (max-width:860px){
+  #app{grid-template-columns:1fr;grid-template-rows:auto var(--mh) 14px 1fr;height:auto;min-height:100vh}
+  #rs{border-left:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line);cursor:row-resize}
+  #rs::after{width:48px;height:4px;margin:-2px 0 0 -24px}
+  header{grid-column:1;gap:10px 14px;padding:10px 14px}
+  .brand b{font-size:18px}
+  .stats{order:5;flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto;gap:12px}
+  .stat{min-width:74px}
+  .search{flex:1}
+  .filters{left:64px;right:10px;bottom:10px}
+  .filters button,.mapbtns button{font-size:12px;padding:5px 8px}
+  .mapbtns{left:10px;bottom:10px}
+  .search input{width:100%}
+  aside{border-left:none;border-top:1px solid var(--line);padding:16px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><small id="brandSmall"></small><b id="brandBig">星圖</b></div>
+    <div class="stats" id="stats"></div>
+    <div class="search">
+      <input id="q" type="search" placeholder="搜尋考點…" autocomplete="off">
+      <div class="results" id="results"></div>
+    </div>
+    <div class="fsz" title="調整右側說明欄的文字大小"><span>說明字級</span><button id="fdn" aria-label="縮小字級">A−</button><button id="fup" aria-label="放大字級">A＋</button></div>
+    <div class="countdown"><b id="days">--</b><small id="examLabel">天後考試</small></div>
+  </header>
+
+  <div id="mapWrap">
+    <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="mapbtns">
+      <button id="zin" title="放大">＋</button>
+      <button id="zout" title="縮小">－</button>
+      <button id="zfit">全景</button>
+    </div>
+    <div class="filters" id="filters">
+      <button data-f="all" class="on">全部</button>
+      <button data-f="hot" id="hotBtn">常考</button>
+      <button data-f="todo">還不會</button>
+      <button data-f="X">指引沒寫</button>
+    </div>
+  </div>
+
+  <div id="rs" role="separator" aria-label="拖曳調整右側說明欄大小" title="拖曳調整說明欄大小"></div>
+  <aside id="panel"></aside>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function(){
+"use strict";
+const D = window.MAP_DATA || {chapters:{},sections:[],topics:[]};
+// 各科的標題、考試日、章節顏色、小節位置都寫在 data\meta.json，由 build.py 放進 data.js
+const M = Object.assign({pageTitle:"星圖", brandSmall:"", brandBig:"星圖", examDate:"", examLabel:"", storePrefix:"starmap",
+  hotMin:2, sourceNote:"", chapters:[], anchors:{}}, D.meta || {});
+const EXAM = M.examDate ? new Date(M.examDate + "T00:00:00") : null;
+const KEY_P = M.storePrefix + "-progress-v1", KEY_Q = M.storePrefix + "-quiz-v1";
+const COLORS = Object.fromEntries(M.chapters.map(c => [c.id, c.color]));
+const ANCHOR = M.anchors;
+const MAIN_CH = M.chapters.filter(c => c.id !== "X");
+
+const $ = id => document.getElementById(id);
+document.title = M.pageTitle;
+$("brandSmall").textContent = M.brandSmall;
+$("brandBig").textContent = M.brandBig;
+$("examLabel").textContent = "天後考試 " + M.examLabel;
+$("hotBtn").textContent = `常考（≥${M.hotMin} 次）`;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function load(k){ try { return JSON.parse(localStorage.getItem(k)) || {}; } catch(e){ return {}; } }
+function save(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+
+let progress = load(KEY_P);   // id -> 0/1/2
+let quizLog = load(KEY_Q);    // id -> {qi: "ok"}
+const secById = Object.fromEntries(D.sections.map(s => [s.id, s]));
+const topics = D.topics.filter(t => secById[t.section]);
+const chapterOf = t => secById[t.section].chapter;
+
+/* ---------- 版面配置 ---------- */
+// 命中數可能到十幾次，用平方根讓大圈不會大到蓋住整區
+const radius = t => Math.min(32, 7 + 6 * Math.sqrt(t.examHits || 0));
+const secs = D.sections.map(s => ({...s, items: topics.filter(t => t.section === s.id)}))
+                       .filter(s => s.items.length);
+const byId = Object.fromEntries(topics.map(t => [t.id, t]));
+const links = (D.links || []).filter(l => byId[l.a] && byId[l.b]);
+const nbrs = Object.fromEntries(topics.map(t => [t.id, []]));
+links.forEach(l => { nbrs[l.a].push({id:l.b, why:l.why}); nbrs[l.b].push({id:l.a, why:l.why}); });
+
+// 力導向配置：同節考點被拉向該節錨點、有連線的考點互相吸引、所有圈圈互不重疊
+// 各力道可在 meta.layout 調：spread 錨點離中心多遠、anchorPull 拉回錨點、crossPull 跨節連線吸力、crossGap 跨節最小間距
+const LY = Object.assign({spread:.72, anchorPull:.01, crossPull:.02, crossGap:40}, M.layout || {});
+secs.forEach(s => {
+  const [ax0, ay0] = ANCHOR[s.id] || [800, 550];
+  s.ax = 800 + (ax0 - 800) * LY.spread; s.ay = 560 + (ay0 - 560) * LY.spread;
+  s.items.slice().sort((a,b) => (b.examHits||0) - (a.examHits||0)).forEach((t, i) => {
+    const a = i * 2.39996, d = 42 * Math.sqrt(i);
+    t._x = s.ax + Math.cos(a) * d; t._y = s.ay + Math.sin(a) * d; t._r = radius(t); t._s = s;
+  });
+});
+const ITER = 500;
+for (let it = 0; it < ITER; it++) {
+  const alpha = 1 - it / ITER;
+  links.forEach(l => {
+    const p = byId[l.a], q = byId[l.b], same = p._s === q._s;
+    const L = same ? p._r + q._r + 70 : 170;
+    const dx = q._x - p._x, dy = q._y - p._y, d = Math.hypot(dx, dy) || .01;
+    const f = (d - L) / d * (same ? .03 : LY.crossPull) * alpha;
+    p._x += dx*f; p._y += dy*f; q._x -= dx*f; q._y -= dy*f;
+  });
+  topics.forEach(t => { t._x += (t._s.ax - t._x) * LY.anchorPull; t._y += (t._s.ay - t._y) * LY.anchorPull; });
+  for (let i = 0; i < topics.length; i++) for (let j = i + 1; j < topics.length; j++) {
+    const p = topics[i], q = topics[j];
+    const dx = q._x - p._x, dy = q._y - p._y, d = Math.hypot(dx, dy) || .01;
+    const min = p._r + q._r + (p._s === q._s ? 28 : LY.crossGap);
+    if (d < min) { const m = (min - d) / 2 / d; p._x -= dx*m; p._y -= dy*m; q._x += dx*m; q._y += dy*m; }
+  }
+}
+secs.forEach(s => {
+  const x0 = Math.min(...s.items.map(t => t._x - t._r)), x1 = Math.max(...s.items.map(t => t._x + t._r));
+  const y0 = Math.min(...s.items.map(t => t._y - t._r)), y1 = Math.max(...s.items.map(t => t._y + t._r + 16));
+  s.x = (x0 + x1) / 2; s.y = (y0 + y1) / 2;
+  s.rx = (x1 - x0) / 2 * 1.18 + 28; s.ry = (y1 - y0) / 2 * 1.18 + 28;
+});
+
+/* ---------- 繪圖 ---------- */
+const svg = $("map"), NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+const gSec = el("g", {}, svg), gEdge = el("g", {}, svg), gNode = el("g", {}, svg);
+const stars = el("g", {opacity:.5}, svg); svg.insertBefore(stars, gSec);
+
+let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+secs.forEach(s => { minX = Math.min(minX, s.x - s.rx); minY = Math.min(minY, s.y - s.ry - 30); maxX = Math.max(maxX, s.x + s.rx); maxY = Math.max(maxY, s.y + s.ry); });
+if (!secs.length) { minX = 0; minY = 0; maxX = 1600; maxY = 1100; }
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i < 260; i++) el("circle", {cx: minX - 200 + rnd()*(maxX-minX+400), cy: minY - 200 + rnd()*(maxY-minY+400), r: rnd()*1.3+.2, fill:"#c8d2f0"}, stars);
+
+// 區塊標籤預設放在橢圓頂端；彼此重疊時往上錯開
+secs.forEach(s => { s.lx = s.x; s.ly = s.y - s.ry - 10; s.lw = (s.name.length + (s.id === "X" ? 0 : 2)) * 16 + 10; });
+for (let it = 0; it < 60; it++) {
+  let movedAny = false;
+  const order = secs.slice().sort((a, b) => b.ly - a.ly);
+  for (let i = 0; i < order.length; i++) for (let j = i + 1; j < order.length; j++) {
+    const p = order[i], q = order[j];
+    if (Math.abs(p.lx - q.lx) < (p.lw + q.lw) / 2 && Math.abs(p.ly - q.ly) < 24) { q.ly = p.ly - 24; movedAny = true; }
+  }
+  if (!movedAny) break;
+}
+secs.forEach(s => { minY = Math.min(minY, s.ly - 24); });
+secs.forEach(s => {
+  const c = COLORS[s.chapter];
+  el("ellipse", {cx:s.x, cy:s.y, rx:s.rx, ry:s.ry, class:"sec-ring", fill:c, stroke:c}, gSec);
+  const lb = el("text", {x:s.lx, y:s.ly, "text-anchor":"middle", class:"sec-label", fill:c}, gSec);
+  const no = el("tspan", {class:"no"}, lb); no.textContent = s.id === "X" ? "" : s.id + "  ";
+  const nm = el("tspan", {}, lb); nm.textContent = s.name;
+  lb.addEventListener("click", () => { zoomToSection(s); showSection(s.id); });
+});
+
+const edgesOf = Object.fromEntries(topics.map(t => [t.id, []]));
+links.forEach(l => {
+  const p = byId[l.a], q = byId[l.b];
+  const ln = el("line", {x1:p._x, y1:p._y, x2:q._x, y2:q._y, class:"edge"}, gEdge);
+  edgesOf[l.a].push(ln); edgesOf[l.b].push(ln);
+});
+
+const nodeEls = {};
+topics.forEach(t => {
+  const c = COLORS[chapterOf(t)];
+  const g = el("g", {class:"node" + ((t.examHits||0) < 2 ? " small" : ""), transform:`translate(${t._x},${t._y})`}, gNode);
+  el("circle", {class:"halo", r:t._r + 6}, g);
+  el("circle", {class:"dot", r:t._r, stroke:c, fill:c}, g);
+  const tx = el("text", {y:t._r + 14}, g); tx.textContent = t.title;
+  g.addEventListener("click", ev => { if (moved) return; ev.stopPropagation(); openTopic(t.id); });
+  g.addEventListener("mouseenter", () => focus(t.id));
+  g.addEventListener("mouseleave", () => focus(selected));
+  nodeEls[t.id] = g;
+});
+
+// 聚焦：亮起該考點的連線與相鄰考點（像 Obsidian 的關聯圖）
+let focused = null;
+function focus(id){
+  if (focused) { edgesOf[focused].forEach(e => e.classList.remove("hl")); [focused, ...nbrs[focused].map(n => n.id)].forEach(i => nodeEls[i].classList.remove("nb")); }
+  focused = id && nbrs[id] ? id : null;
+  svg.classList.toggle("focus", !!focused);
+  if (focused) { edgesOf[focused].forEach(e => e.classList.add("hl")); [focused, ...nbrs[focused].map(n => n.id)].forEach(i => nodeEls[i].classList.add("nb")); }
+}
+
+function paintNode(id){
+  const st = progress[id] || 0, dot = nodeEls[id] && nodeEls[id].querySelector(".dot");
+  if (dot) dot.setAttribute("fill-opacity", [0.04, 0.38, 0.95][st]);
+}
+topics.forEach(t => paintNode(t.id));
+
+/* ---------- 平移縮放 ---------- */
+const pad = 60;
+const home = {x:minX - pad, y:minY - pad, w:(maxX - minX) + pad*2, h:(maxY - minY) + pad*2};
+let view = {...home};
+function fitAspect(v){
+  if (!svg.clientWidth || !svg.clientHeight) return v;
+  const r =svg.clientWidth / Math.max(1, svg.clientHeight), vr = v.w / v.h;
+  if (vr < r) { const nw = v.h * r; v.x -= (nw - v.w)/2; v.w = nw; } else { const nh = v.w / r; v.y -= (nh - v.h)/2; v.h = nh; }
+  return v;
+}
+function apply(){
+  svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+  svg.classList.toggle("far", view.w / Math.max(1, svg.clientWidth) > 1.25);
+}
+function zoomAt(f, cx, cy){
+  const nw = Math.min(home.w * 3, Math.max(180, view.w * f)), k = nw / view.w;
+  view.x = cx - (cx - view.x) * k; view.y = cy - (cy - view.y) * k; view.w = nw; view.h *= k; apply();
+}
+function toWorld(px, py){ const b = svg.getBoundingClientRect(); return [view.x + (px - b.left) / b.width * view.w, view.y + (py - b.top) / b.height * view.h]; }
+function zoomTo(x, y, w){ const r = svg.clientWidth / Math.max(1, svg.clientHeight); view = {x:x - w/2, y:y - w/r/2, w, h:w/r}; apply(); }
+function zoomToSection(s){ zoomTo(s.x, s.y, Math.max(s.rx * 2.4, s.ry * 2.4 * svg.clientWidth / Math.max(1, svg.clientHeight), 420)); }
+function resetView(){ view = fitAspect({...home}); apply(); }
+
+svg.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = toWorld(e.clientX, e.clientY); zoomAt(e.deltaY > 0 ? 1.15 : 1/1.15, x, y); }, {passive:false});
+const ptrs = new Map(); let moved = false, last = null, pinch0 = null;
+svg.addEventListener("pointerdown", e => { ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = false; last = [e.clientX, e.clientY]; if (ptrs.size === 2) pinch0 = null; });
+svg.addEventListener("pointermove", e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+  if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a[0]-b[0], a[1]-b[1]);
+    if (pinch0) { const [x, y] = toWorld((a[0]+b[0])/2, (a[1]+b[1])/2); zoomAt(pinch0 / d, x, y); }
+    pinch0 = d; moved = true; return;
+  }
+  const dx = e.clientX - last[0], dy = e.clientY - last[1];
+  if (!moved && Math.hypot(dx, dy) < 5) return;
+  if (!moved) { moved = true; try { svg.setPointerCapture(e.pointerId); } catch(_){} svg.classList.add("dragging"); }
+  const b = svg.getBoundingClientRect();
+  view.x -= dx / b.width * view.w; view.y -= dy / b.height * view.h; last = [e.clientX, e.clientY]; apply();
+});
+const up = e => { ptrs.delete(e.pointerId); svg.classList.remove("dragging"); if (ptrs.size < 2) pinch0 = null; if (ptrs.size === 1) last = [...ptrs.values()][0]; };
+svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", up);
+$("zin").onclick = () => zoomAt(1/1.3, view.x + view.w/2, view.y + view.h/2);
+$("zout").onclick = () => zoomAt(1.3, view.x + view.w/2, view.y + view.h/2);
+$("zfit").onclick = resetView;
+window.addEventListener("resize", () => {
+  if (!svg.clientWidth || !svg.clientHeight) return;
+  const cy = view.y + view.h / 2; view.h = view.w * svg.clientHeight / svg.clientWidth; view.y = cy - view.h / 2; apply();
+});
+
+/* ---------- 篩選與搜尋 ---------- */
+let filter = "all", query = "";
+function matches(t){
+  if (filter === "hot" && (t.examHits||0) < M.hotMin) return false;
+  if (filter === "todo" && (progress[t.id]||0) === 2) return false;
+  if (filter === "X" && t.section !== "X" && t.inGuide !== false) return false;
+  if (!query) return true;
+  const hay = [t.title, t.summary, (t.keyPoints||[]).join(" "), t.trap].join(" ").toLowerCase();
+  return hay.includes(query);
+}
+function refreshDim(){ topics.forEach(t => nodeEls[t.id].classList.toggle("dim", !matches(t))); }
+$("filters").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  filter = b.dataset.f;
+  [...$("filters").children].forEach(x => x.classList.toggle("on", x === b));
+  refreshDim();
+});
+const results = $("results");
+$("q").addEventListener("input", e => {
+  query = e.target.value.trim().toLowerCase(); refreshDim();
+  if (!query) { results.style.display = "none"; return; }
+  const hit = topics.filter(matches).slice(0, 15);
+  results.innerHTML = hit.length ? hit.map(t => `<div data-id="${esc(t.id)}">${esc(t.title)}<span>${esc(t.section === "X" ? "指引沒寫" : t.section)}</span></div>`).join("") : `<div style="color:var(--muted)">找不到</div>`;
+  results.style.display = "block";
+});
+results.addEventListener("click", e => { const d = e.target.closest("[data-id]"); if (!d) return; results.style.display = "none"; openTopic(d.dataset.id, true); });
+document.addEventListener("click", e => { if (!e.target.closest(".search")) results.style.display = "none"; });
+
+/* ---------- 進度 ---------- */
+function renderStats(){
+  const groups = [["全部", topics, "var(--accent)"]].concat(MAIN_CH.map(c => [`第${c.id}章`, topics.filter(t => chapterOf(t) === c.id), c.color]));
+  $("stats").innerHTML = groups.filter(g => g[1].length).map(([name, list, col]) => {
+    const done = list.filter(t => progress[t.id] === 2).length, pct = Math.round(done / list.length * 100);
+    return `<div class="stat"><div class="lbl">${name}（${list.length}）</div><div class="pct">${pct}%</div><div class="bar"><i style="width:${pct}%;background:${col}"></i></div></div>`;
+  }).join("");
+}
+function setProgress(id, st){ progress[id] = st; save(KEY_P, progress); paintNode(id); renderStats(); refreshDim(); }
+
+/* ---------- 側欄 ---------- */
+const panel = $("panel");
+
+/* ---------- 說明欄：字級與大小調整（記在各裝置自己的瀏覽器） ---------- */
+const KEY_UI = M.storePrefix + "-ui-v1";
+const ui = Object.assign({pz: 1.15, pw: 400, mh: null}, load(KEY_UI));
+const root = document.documentElement;
+const narrow = () => window.matchMedia("(max-width:860px)").matches;
+function applyUI(notify = true){
+  ui.pz = Math.min(2, Math.max(.8, Math.round(ui.pz * 20) / 20));
+  root.style.setProperty("--pz", ui.pz);
+  root.style.setProperty("--pw", Math.min(Math.max(ui.pw, 260), Math.max(260, window.innerWidth - 220)) + "px");
+  root.style.setProperty("--mh", (ui.mh ? Math.min(Math.max(ui.mh, 160), Math.max(160, window.innerHeight - 220)) + "px" : "55vh"));
+  if (notify) window.dispatchEvent(new Event("resize"));
+}
+$("fup").onclick = () => { ui.pz += .1; save(KEY_UI, ui); applyUI(); };
+$("fdn").onclick = () => { ui.pz -= .1; save(KEY_UI, ui); applyUI(); };
+(function(){
+  const rs = $("rs");
+  let drag = false;
+  rs.addEventListener("pointerdown", e => { drag = true; rs.classList.add("drag"); rs.setPointerCapture(e.pointerId); e.preventDefault(); });
+  rs.addEventListener("pointermove", e => {
+    if (!drag) return;
+    if (narrow()) { ui.mh = e.clientY - $("mapWrap").getBoundingClientRect().top; }
+    else { ui.pw = window.innerWidth - e.clientX; }
+    applyUI();
+  });
+  const end = () => { if (!drag) return; drag = false; rs.classList.remove("drag"); save(KEY_UI, ui); };
+  rs.addEventListener("pointerup", end); rs.addEventListener("pointercancel", end);
+  rs.addEventListener("dblclick", () => { ui.pz = 1.15; ui.pw = 400; ui.mh = null; save(KEY_UI, ui); applyUI(); });
+})();
+applyUI();
+window.addEventListener("resize", () => applyUI(false));
+let selected = null;
+function select(id){
+  if (selected && nodeEls[selected]) nodeEls[selected].classList.remove("sel");
+  selected = id; if (id && nodeEls[id]) nodeEls[id].classList.add("sel");
+  focus(id);
+}
+
+function showHome(){
+  select(null);
+  const total = D.examTotal;
+  panel.innerHTML = `
+    <h2>使用方式</h2>
+    <p>點星圖上的圈圈，看考點說明和練習題。圈圈越大，代表官方公告試題考得越多，時間不夠就先讀大圈。</p>
+    <p>練習題答錯不會直接公布答案，會先給提示，想不出來再按「看解析」。</p>
+    <p>讀完一個考點，在說明下方標記「讀過」或「會了」，星星會亮起來，上方的進度條也會跟著跑。</p>
+    <h3>圖例</h3>
+    <div class="legend">
+      ${M.chapters.map(c => `<span><i class="sw" style="background:${esc(c.color)}"></i>${esc(c.short || c.name)}</span>`).join("")}
+      <span><i class="sw" style="border:2px solid var(--muted)"></i>空心未讀</span>
+      <span><i class="sw" style="background:var(--muted);opacity:.45"></i>半透明讀過</span>
+      <span><i class="sw" style="background:var(--muted)"></i>實心會了</span>
+    </div>
+    <p class="tip">${esc(M.sourceNote)}${total ? `（共 ${total} 題）` : ""}。進度只存在這台裝置的瀏覽器裡。</p>
+    <h3>章節</h3>
+    <div class="seclist">${secs.map(s => {
+      const done = s.items.filter(t => progress[t.id] === 2).length, hits = s.items.reduce((a, t) => a + (t.examHits||0), 0);
+      return `<div data-s="${esc(s.id)}"><span><b style="color:${COLORS[s.chapter]}">${s.id === "X" ? "★" : esc(s.id)}</b>　${esc(s.name)}</span><span class="n">${done}/${s.items.length} 會了・考 ${hits} 題</span></div>`;
+    }).join("")}</div>
+    ${topics.length ? "" : `<p class="empty">還沒有考點資料（data.js 是空的）</p>`}`;
+  panel.querySelectorAll("[data-s]").forEach(d => d.onclick = () => { const s = secs.find(x => x.id === d.dataset.s); zoomToSection(s); showSection(s.id); });
+  panel.scrollTop = 0;
+}
+
+function showSection(sid){
+  select(null);
+  const s = secs.find(x => x.id === sid); if (!s) return;
+  const items = s.items.slice().sort((a, b) => (b.examHits||0) - (a.examHits||0));
+  panel.innerHTML = `<button class="back">← 回總覽</button>
+    <div class="crumb">${esc(D.chapters[s.chapter] || "")}</div>
+    <h2 style="color:${COLORS[s.chapter]}">${s.id === "X" ? "" : esc(s.id) + " "}${esc(s.name)}</h2>
+    <div class="seclist">${items.map(t => `<div data-id="${esc(t.id)}"><span>${["○","◐","●"][progress[t.id]||0]} ${esc(t.title)}</span><span class="n">${t.examHits ? "考 " + t.examHits + " 次" : ""}</span></div>`).join("")}</div>`;
+  panel.querySelector(".back").onclick = showHome;
+  panel.querySelectorAll("[data-id]").forEach(d => d.onclick = () => openTopic(d.dataset.id, true));
+  panel.scrollTop = 0;
+}
+
+function openTopic(id, fly){
+  const t = topics.find(x => x.id === id); if (!t) return;
+  select(id);
+  if (fly) zoomTo(t._x, t._y, Math.max(Math.min(view.w, 700), 360));
+  const s = secById[t.section], c = COLORS[s.chapter], st = progress[id] || 0;
+  panel.innerHTML = `<button class="back">← ${s.id === "X" ? "" : esc(s.id) + " "}${esc(s.name)}</button>
+    <h2 style="color:${c}">${esc(t.title)}</h2>
+    <div>${t.examHits ? `<span class="chip hot">官方試題考過 ${t.examHits} 次</span>` : `<span class="chip">公告試題尚未考過</span>`}
+      ${(t.examRefs||[]).map(r => `<span class="chip">${esc(r)}</span>`).join("")}
+      ${t.inGuide === false && t.section !== "X" ? `<span class="chip">指引沒寫，最接近 p${esc(t.guidePages)}</span>` : t.guidePages ? `<span class="chip">指引 ${esc(t.guidePages)}</span>` : ""}</div>
+    <h3>白話說明</h3><p>${esc(t.summary)}</p>
+    <h3>重點</h3><ul>${(t.keyPoints||[]).map(k => `<li>${esc(k)}</li>`).join("")}</ul>
+    ${t.trap ? `<h3>小心陷阱</h3><div class="trap">${esc(t.trap)}</div>` : ""}
+    ${nbrs[id].length ? `<h3>相關考點</h3><div class="rel">${nbrs[id].map(n => `<div data-id="${esc(n.id)}"><b style="color:${COLORS[chapterOf(byId[n.id])]}">${["○","◐","●"][progress[n.id]||0]} ${esc(byId[n.id].title)}</b>${n.why ? `<span>${esc(n.why)}</span>` : ""}</div>`).join("")}</div>` : ""}
+    <div class="prog">${["未讀","讀過","會了"].map((n, i) => `<button data-st="${i}" class="${st === i ? "on" : ""}">${n}</button>`).join("")}</div>
+    <div class="tip">「會了」的標準：蓋住說明，自己講得出定義＋一個例子，而且下面的題目答對。</div>
+    <h3>練習題</h3>
+    <div id="quizzes"></div>`;
+  panel.querySelector(".back").onclick = () => showSection(s.id);
+  panel.querySelectorAll(".rel [data-id]").forEach(d => d.onclick = () => openTopic(d.dataset.id, true));
+  panel.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { setProgress(id, +b.dataset.st); panel.querySelectorAll("[data-st]").forEach(x => x.classList.toggle("on", x === b)); });
+  const box = panel.querySelector("#quizzes");
+  (t.quiz||[]).forEach((q, qi) => box.appendChild(renderQuiz(t, q, qi)));
+  panel.scrollTop = 0;
+}
+
+function renderQuiz(t, q, qi){
+  const wrap = document.createElement("div"); wrap.className = "quiz";
+  const L = "ABCD";
+  const prev = (quizLog[t.id] || {})[qi];
+  wrap.innerHTML = `<div class="stem"><span class="src">${esc(q.source || "")}${prev === "ok" ? "　✓ 答對過" : ""}</span>${qi + 1}. ${esc(q.stem)}</div>
+    ${q.options.map((o, i) => `<button class="opt" data-i="${i}">(${L[i]}) ${esc(o)}</button>`).join("")}
+    <div class="fb"></div>`;
+  const fb = wrap.querySelector(".fb"), opts = [...wrap.querySelectorAll(".opt")];
+  let tries = 0;
+  const reveal = () => {
+    opts.forEach(b => b.disabled = true);
+    opts[q.answer].classList.add("right");
+    const exp = String(q.explanation || "").replace(/^\s*(答案|正解)\s*[:：]?\s*[\(（]?[A-D][\)）]?\s*[。．.，,：:]?\s*/, "");
+    fb.innerHTML = `<div class="exp"><b>答案 (${L[q.answer]})</b>　${esc(exp)}</div>`;
+  };
+  opts.forEach(b => b.onclick = () => {
+    const i = +b.dataset.i; tries++;
+    if (i === q.answer) {
+      b.classList.add("right"); opts.forEach(x => x.disabled = true);
+      (quizLog[t.id] = quizLog[t.id] || {})[qi] = "ok"; save(KEY_Q, quizLog);
+      fb.innerHTML = `<div style="color:var(--ok)"><b>答對了！</b>${tries > 1 ? `（第 ${tries} 次）` : ""}</div><div class="exp">${esc(q.explanation)}</div>`;
+    } else {
+      b.classList.add("wrong"); b.disabled = true;
+      fb.innerHTML = `<div class="hint">不對喔。提示：${esc(q.hint || "再讀一次說明裡的重點。")}</div>
+        <button class="linkbtn">想不出來，看解析</button>`;
+      fb.querySelector(".linkbtn").onclick = reveal;
+    }
+  });
+  return wrap;
+}
+
+/* ---------- 啟動 ---------- */
+const days = EXAM ? Math.ceil((EXAM - new Date(new Date().toDateString())) / 864e5) : NaN;
+$("days").textContent = isNaN(days) ? "--" : days > 0 ? days : "考試日";
+renderStats(); showHome(); resetView(); refreshDim();
+document.addEventListener("keydown", e => { if (e.key === "Escape") showHome(); });
+})();
+</script>
+</body>
+</html>
