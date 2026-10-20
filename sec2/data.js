@@ -40,12 +40,6 @@ window.MAP_DATA = {
     "color": "#d7dde9"
    }
   ],
-  "layout": {
-   "spread": 0.82,
-   "anchorPull": 0.016,
-   "crossPull": 0.01,
-   "crossGap": 55
-  },
   "anchors": {
    "4.1": [
     160,
