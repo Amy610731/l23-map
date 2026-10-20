@@ -147,6 +147,7 @@ html.embed header{padding:6px 12px;gap:8px 14px}
       <button id="zin" title="放大">＋</button>
       <button id="zout" title="縮小">－</button>
       <button id="zfit">全景</button>
+      <button id="zreset" title="把拖過的考點與島放回原位">重排</button>
     </div>
     <div class="filters" id="filters">
       <button data-f="all" class="on">全部</button>
@@ -233,12 +234,17 @@ for (let it = 0; it < ITER; it++) {
     if (d < min) { const m = (min - d) / 2 / d; p._x -= dx*m; p._y -= dy*m; q._x += dx*m; q._y += dy*m; }
   }
 }
-secs.forEach(s => {
+// 拖曳過的考點位置記在這台裝置（像 Obsidian 一樣可以自己把島拉開）；按「重排」清掉
+const KEY_POS = M.storePrefix + "-pos-v1";
+const savedPos = load(KEY_POS);
+topics.forEach(t => { const p = savedPos[t.id]; if (Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])) { t._x = +p[0]; t._y = +p[1]; } });
+function fitSec(s){
   const x0 = Math.min(...s.items.map(t => t._x - t._r)), x1 = Math.max(...s.items.map(t => t._x + t._r));
   const y0 = Math.min(...s.items.map(t => t._y - t._r)), y1 = Math.max(...s.items.map(t => t._y + t._r + 16));
   s.x = (x0 + x1) / 2; s.y = (y0 + y1) / 2;
   s.rx = (x1 - x0) / 2 * 1.18 + 28; s.ry = (y1 - y0) / 2 * 1.18 + 28;
-});
+}
+secs.forEach(fitSec);
 
 /* ---------- 繪圖 ---------- */
 const svg = $("map"), NS = "http://www.w3.org/2000/svg";
@@ -263,22 +269,45 @@ for (let it = 0; it < 60; it++) {
   }
   if (!movedAny) break;
 }
-secs.forEach(s => { minY = Math.min(minY, s.ly - 24); });
+secs.forEach(s => { minY = Math.min(minY, s.ly - 24); s.lo = s.ly - (s.y - s.ry); });
+function drawSec(s){
+  s.lx = s.x; s.ly = s.y - s.ry + s.lo;
+  s._ell.setAttribute("cx", s.x); s._ell.setAttribute("cy", s.y); s._ell.setAttribute("rx", s.rx); s._ell.setAttribute("ry", s.ry);
+  s._lb.setAttribute("x", s.lx); s._lb.setAttribute("y", s.ly);
+}
+let dragT = null;   // 正在拖的東西：{kind:"node", t} 或 {kind:"sec", s}
 secs.forEach(s => {
   const c = COLORS[s.chapter];
-  el("ellipse", {cx:s.x, cy:s.y, rx:s.rx, ry:s.ry, class:"sec-ring", fill:c, stroke:c}, gSec);
-  const lb = el("text", {x:s.lx, y:s.ly, "text-anchor":"middle", class:"sec-label", fill:c}, gSec);
+  s._ell = el("ellipse", {cx:s.x, cy:s.y, rx:s.rx, ry:s.ry, class:"sec-ring", fill:c, stroke:c}, gSec);
+  const lb = s._lb = el("text", {x:s.lx, y:s.ly, "text-anchor":"middle", class:"sec-label", fill:c}, gSec);
   const no = el("tspan", {class:"no"}, lb); no.textContent = s.id === "X" ? "" : s.id + "  ";
   const nm = el("tspan", {}, lb); nm.textContent = s.name;
-  lb.addEventListener("click", () => { zoomToSection(s); showSection(s.id); });
+  lb.addEventListener("pointerdown", () => { dragT = {kind:"sec", s}; });
+  lb.addEventListener("click", () => { if (moved) return; zoomToSection(s); showSection(s.id); });
 });
 
 const edgesOf = Object.fromEntries(topics.map(t => [t.id, []]));
+function drawEdge(ln){ ln.setAttribute("x1", ln._p._x); ln.setAttribute("y1", ln._p._y); ln.setAttribute("x2", ln._q._x); ln.setAttribute("y2", ln._q._y); }
 links.forEach(l => {
   const p = byId[l.a], q = byId[l.b];
   const ln = el("line", {x1:p._x, y1:p._y, x2:q._x, y2:q._y, class:"edge"}, gEdge);
+  ln._p = p; ln._q = q;
   edgesOf[l.a].push(ln); edgesOf[l.b].push(ln);
 });
+// 拖曳：考點自己移動、連線跟著走、所屬的島自動撐大；拖島的標題則整座島一起移動
+function moveDrag(wx, wy){
+  const list = dragT.kind === "node" ? [dragT.t] : dragT.s.items;
+  list.forEach(t => { t._x += wx; t._y += wy; nodeEls[t.id].setAttribute("transform", `translate(${t._x},${t._y})`); edgesOf[t.id].forEach(drawEdge); });
+  const s = dragT.kind === "node" ? dragT.t._s : dragT.s;
+  fitSec(s); drawSec(s);
+}
+function endDrag(){
+  if (dragT && moved) {
+    (dragT.kind === "node" ? [dragT.t] : dragT.s.items).forEach(t => { savedPos[t.id] = [Math.round(t._x), Math.round(t._y)]; });
+    save(KEY_POS, savedPos);
+  }
+  dragT = null;
+}
 
 const nodeEls = {};
 topics.forEach(t => {
@@ -287,6 +316,7 @@ topics.forEach(t => {
   el("circle", {class:"halo", r:t._r + 6}, g);
   el("circle", {class:"dot", r:t._r, stroke:c, fill:c}, g);
   const tx = el("text", {y:t._r + 14}, g); tx.textContent = t.title;
+  g.addEventListener("pointerdown", () => { dragT = {kind:"node", t}; });
   g.addEventListener("click", ev => { if (moved) return; ev.stopPropagation(); openTopic(t.id); });
   g.addEventListener("mouseenter", () => focus(t.id));
   g.addEventListener("mouseleave", () => focus(selected));
@@ -333,7 +363,10 @@ function resetView(){ view = fitAspect({...home}); apply(); }
 
 svg.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = toWorld(e.clientX, e.clientY); zoomAt(e.deltaY > 0 ? 1.15 : 1/1.15, x, y); }, {passive:false});
 const ptrs = new Map(); let moved = false, last = null, pinch0 = null;
-svg.addEventListener("pointerdown", e => { ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = false; last = [e.clientX, e.clientY]; if (ptrs.size === 2) pinch0 = null; });
+svg.addEventListener("pointerdown", e => {
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = false; last = [e.clientX, e.clientY];
+  if (ptrs.size === 2) { pinch0 = null; dragT = null; }   // 兩指＝縮放，不拖東西
+});
 svg.addEventListener("pointermove", e => {
   if (!ptrs.has(e.pointerId)) return;
   ptrs.set(e.pointerId, [e.clientX, e.clientY]);
@@ -346,10 +379,17 @@ svg.addEventListener("pointermove", e => {
   if (!moved && Math.hypot(dx, dy) < 5) return;
   if (!moved) { moved = true; try { svg.setPointerCapture(e.pointerId); } catch(_){} svg.classList.add("dragging"); }
   const b = svg.getBoundingClientRect();
+  if (dragT) { moveDrag(dx / b.width * view.w, dy / b.height * view.h); last = [e.clientX, e.clientY]; return; }
   view.x -= dx / b.width * view.w; view.y -= dy / b.height * view.h; last = [e.clientX, e.clientY]; apply();
 });
-const up = e => { ptrs.delete(e.pointerId); svg.classList.remove("dragging"); if (ptrs.size < 2) pinch0 = null; if (ptrs.size === 1) last = [...ptrs.values()][0]; };
+const up = e => { ptrs.delete(e.pointerId); svg.classList.remove("dragging"); if (ptrs.size < 2) pinch0 = null; if (ptrs.size === 1) last = [...ptrs.values()][0]; if (!ptrs.size) endDrag(); };
 svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", up);
+$("zreset").onclick = () => {
+  if (!Object.keys(savedPos).length) return;
+  if (!confirm("把拖過的考點和島全部放回原位？")) return;
+  try { localStorage.removeItem(KEY_POS); } catch(_){}
+  location.reload();
+};
 $("zin").onclick = () => zoomAt(1/1.3, view.x + view.w/2, view.y + view.h/2);
 $("zout").onclick = () => zoomAt(1.3, view.x + view.w/2, view.y + view.h/2);
 $("zfit").onclick = resetView;
@@ -443,6 +483,7 @@ function showHome(){
   panel.innerHTML = `
     <h2>使用方式</h2>
     <p>點星圖上的圈圈，看考點說明和練習題。圈圈越大，代表官方公告試題考得越多，時間不夠就先讀大圈。</p>
+    <p>覺得太擠可以自己拉開：拖曳圈圈移動單一考點，拖曳島的標題整座島一起移動；位置會記在這台裝置，按左下「重排」恢復原狀。</p>
     <p>練習題答錯不會直接公布答案，會先給提示，想不出來再按「看解析」。</p>
     <p>讀完一個考點，在說明下方標記「讀過」或「會了」，星星會亮起來，上方的進度條也會跟著跑。</p>
     <h3>圖例</h3>
