@@ -167,6 +167,10 @@ html.embed .wrap { gap: 14px; }
       <button id="view-one" data-view="one">一題一題</button>
       <button id="view-all" data-view="all">全部列出</button>
     </div>
+    <div class="seg" role="group" aria-label="底色">
+      <button id="theme-light" data-theme-set="light">淺色</button>
+      <button id="theme-dark" data-theme-set="dark">深色</button>
+    </div>
   </div>
   <p class="modehint" id="modehint"></p>
   <div class="chips" id="chips" role="group" aria-label="依猜題理由篩選"></div>
@@ -200,6 +204,15 @@ const store = {
 // 嵌在陪讀手機版時，把畫面上這一題送給即時語音老師（格式同星圖的 emit，src 都是 "l23-map"）
 const EMBED = window.parent !== window;
 if (EMBED) document.documentElement.classList.add("embed");
+// 底色：自己選過就照選的；沒選過時，嵌在陪讀裡用深色，單獨打開跟著系統
+let theme = store.get("mock1031-theme", EMBED ? "dark" : "auto");
+const darkNow = () => theme === "dark" || (theme === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+function applyTheme() {
+  if (theme === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", theme);
+  document.querySelectorAll("[data-theme-set]").forEach(b => b.setAttribute("aria-pressed", (b.dataset.themeSet === "dark") === darkNow()));
+}
+applyTheme();
 function emit(msg) { if (!EMBED) return; try { window.parent.postMessage(Object.assign({ src: "l23-map" }, msg), "*"); } catch (e) {} }
 const tid = (q) => `mock-${st.subj}-${q.no}`;
 let lastEmit = "";
@@ -378,6 +391,7 @@ document.addEventListener("click", (e) => {
   if (!t) return;
   if (t.dataset.subj) { st.subj = t.dataset.subj; st.filter = "全部"; loadSubj(); save(); render(); }
   else if (t.dataset.mode) { st.mode = t.dataset.mode; loadSubj(); save(); render(); }
+  else if (t.dataset.themeSet) { theme = t.dataset.themeSet; store.set("mock1031-theme", theme); applyTheme(); }
   else if (t.dataset.view) { st.view = t.dataset.view; save(); render(); }
   else if (t.dataset.go) { go(+t.dataset.go); }
   else if (t.dataset.filter) { st.filter = t.dataset.filter; save(); render(); }
