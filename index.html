@@ -21,9 +21,13 @@ header{grid-column:1/4;display:flex;align-items:center;gap:18px;padding:10px 18p
   background:var(--bg2);border-bottom:1px solid var(--line);flex-wrap:wrap}
 .brand small{display:block;color:var(--muted);font-size:12px;letter-spacing:.06em}
 .brand b{font-size:20px;letter-spacing:.08em;color:var(--accent)}
-.stats{display:flex;gap:14px;flex:1;flex-wrap:wrap;min-width:0}
-.stat{min-width:92px}
-.stat .lbl{font-size:12px;color:var(--muted);white-space:nowrap}
+/* 各章進度一律橫排；塞不下時整列換到標題下一行（不再一章一行直排） */
+.stats{display:flex;gap:12px;flex:1 1 360px;flex-wrap:nowrap;min-width:0;overflow-x:auto}
+.stat{flex:1 1 0;min-width:68px;max-width:120px}
+.stat .lbl{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1180px){ .stats{order:5;flex:1 1 100%} }
+header{min-width:0}   /* 手機上別讓頂端被進度條撐得比螢幕寬；進度條自己左右滑 */
+@media (max-width:860px){ .search{flex:1 1 150px;min-width:150px} }
 .stat .bar{height:5px;background:var(--line);border-radius:3px;margin-top:4px;overflow:hidden}
 .stat .bar i{display:block;height:100%;width:0;border-radius:3px;transition:width .3s}
 .stat .pct{font-size:13px;font-weight:700}
