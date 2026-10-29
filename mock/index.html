@@ -79,6 +79,9 @@ html.embed header.top { display: none; }
 html.embed body { padding-block: 12px 32px; }
 html.embed .wrap { gap: 14px; }
 .timer { font-family: var(--f-mono); font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.timer.low, .navtimer.low { color: var(--bad); font-weight: 700; }
+.navtimer { font-family: var(--f-mono); font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.nav .mid { display: grid; justify-items: center; gap: 0; }
 
 /* 劃記卡 */
 .card-panel { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); background: var(--sheet); border: 1.5px solid var(--card-red); border-radius: 4px; padding: 14px; display: grid; gap: 12px; }
@@ -245,30 +248,46 @@ if (location.hash === "#s2") st.subj = "I12";
 if (location.hash === "#s1") st.subj = "I11";
 // 每科每個模式各存一份作答（練習／考試／錯題本互不影響）
 // tried：錯題本這一輪每題「第一次」的結果（ok／bad）；grad：這一輪畢業的題目（留在畫面上直到下一輪）
-let ans = {}, submitted = false, shown = {}, t0 = null, t1 = null, tried = {}, grad = {};
+let ans = {}, submitted = false, shown = {}, t0 = null, t1 = null, tried = {}, grad = {}, timedOut = false;
+const LIMIT = 90 * 60 * 1000;  // 考試模式限時 90 分鐘，作答第一題開始倒數
 // 錯題本：{題號: {streak: 連續幾輪第一次就答對, misses: 累計答錯次數}}，兩種模式答錯都收進來
 let nb = {};
 const slot = () => "mock1031-" + st.subj + "-" + st.mode;
 const ck = () => st.subj + "-" + st.mode;
 function loadSubj() {
   const s = store.get(slot(), {});
-  ans = s.ans || {}; submitted = !!s.submitted; shown = s.shown || {}; t0 = s.t0 || null; t1 = s.t1 || null;
+  ans = s.ans || {}; submitted = !!s.submitted; shown = s.shown || {}; t0 = s.t0 || null; t1 = s.t1 || null; timedOut = !!s.timedOut;
   tried = s.tried || {}; grad = s.grad || {};
   nb = store.get("mock1031-nb-" + st.subj, {});
 }
-function save() { store.set(slot(), { ans, submitted, shown, t0, t1, tried, grad }); store.set("mock1031-ui", st); }
+function save() { store.set(slot(), { ans, submitted, shown, t0, t1, tried, grad, timedOut }); store.set("mock1031-ui", st); }
 const saveNb = () => store.set("mock1031-nb-" + st.subj, nb);
 const nbAdd = (n) => { nb[n] = { streak: 0, misses: ((nb[n] && nb[n].misses) || 0) + 1 }; saveNb(); };
 const nbCount = () => Object.keys(nb).length;
 const practiceDone = () => qs().every(q => ans[q.no] != null || shown[q.no]);
 const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
 function tick() {
-  const el = document.getElementById("timer");
+  const el = document.getElementById("timer"), nt = document.querySelector(".navtimer");
   el.hidden = st.mode !== "exam";
-  if (el.hidden) return;
-  el.textContent = !t0 ? "計時：作答第一題後開始" : (t1 ? "作答時間 " : "已用時間 ") + mmss((t1 || Date.now()) - t0);
+  if (el.hidden) { if (nt) nt.textContent = ""; return; }
+  if (t0 && !submitted && Date.now() - t0 >= LIMIT) { doSubmit(true); return; }
+  const left = t0 && !submitted ? LIMIT - (Date.now() - t0) : null, low = left != null && left < 5 * 60 * 1000;
+  el.textContent = !t0 ? "限時 90 分鐘：作答第一題後開始倒數"
+    : submitted ? "作答時間 " + mmss((t1 || Date.now()) - t0) + (timedOut ? "（時間到，自動交卷）" : "")
+    : "剩餘時間 " + mmss(left);
+  el.classList.toggle("low", low);
+  if (nt) { nt.textContent = left != null ? "剩 " + mmss(left) : ""; nt.classList.toggle("low", low); }
 }
 setInterval(tick, 1000);
+// 交卷（手動或時間到）：答錯的題目收進錯題本
+function doSubmit(timeout) {
+  if (submitted) return;
+  submitted = true; timedOut = !!timeout;
+  if (t0 && !t1) t1 = timeout ? t0 + LIMIT : Date.now();
+  qs().forEach(q => { if (ans[q.no] != null && ans[q.no] !== q.answer) nbAdd(q.no); });
+  document.getElementById("confirm").hidden = true;
+  save(); render(); document.getElementById("qlist").scrollIntoView({ behavior: "smooth" });
+}
 const qs = () => DATA[st.subj] || [];
 const revealed = (n) => st.mode === "exam" ? submitted : (ans[n] != null || shown[n]);
 const baseList = () => st.mode === "notebook" ? qs().filter(q => nb[q.no] || grad[q.no]) : qs();
@@ -281,7 +300,7 @@ function renderTop() {
   document.getElementById("keys").hidden = st.view !== "one";
   document.getElementById("modehint").textContent = {
     practice: "練習模式：每題選完馬上看答案、解析和猜題理由；50 題都做完會出成績。答錯的題目自動收進錯題本。",
-    exam: "考試模式：50 題寫完按「交卷」才公布答案，會計時並算分；作答紀錄和練習模式分開。交卷後答錯的題目收進錯題本。",
+    exam: "考試模式：限時 90 分鐘（作答第一題開始倒數，時間到自動交卷）。寫完按「交卷」才公布答案並算分；作答紀錄和練習模式分開。交卷後答錯的題目收進錯題本。",
     notebook: "錯題本：練習答錯、考試交卷後答錯的題目都在這裡。每一輪第一次就答對算一次，連續兩輪都答對就畢業移出。"
   }[st.mode];
   document.getElementById("mode-notebook").textContent = "錯題本 " + nbCount();
@@ -345,7 +364,7 @@ function navHTML(i, n) {
     : st.mode === "exam" && !submitted ? `<button class="btn" data-act="submit">交卷</button>`
     : showsResult() || st.mode === "notebook" ? `<button class="btn" data-act="top">${st.mode === "notebook" ? "看這一輪結果" : "看成績"}</button>`
     : `<button class="btn" disabled>已是最後一題</button>`;
-  return `<nav class="nav" aria-label="換題"><button class="btn ghost" data-go="-1" ${i === 0 ? "disabled" : ""}>← 上一題</button><span class="pos">${i + 1} / ${n}</span>${next}</nav>`;
+  return `<nav class="nav" aria-label="換題"><button class="btn ghost" data-go="-1" ${i === 0 ? "disabled" : ""}>← 上一題</button><span class="mid"><span class="pos">${i + 1} / ${n}</span><span class="navtimer"></span></span>${next}</nav>`;
 }
 function go(d) {
   const list = visible();
@@ -367,6 +386,7 @@ function renderList() {
   } else html += list.map(qHTML).join("");
   if (!list.length && st.mode !== "notebook") html += `<p class="note">這個分類沒有題目。</p>`;
   document.getElementById("qlist").innerHTML = html;
+  tick();
 }
 function nbHeadHTML(list) {
   const sj = SUBJ[st.subj].name;
@@ -417,7 +437,7 @@ function resultHTML() {
   const chs = [...new Set(list.map(q => q.chapter))];
   const wrong = list.filter(q => ans[q.no] !== q.answer).map(q => q.no);
   return `<section class="result"><h2>${SUBJ[st.subj].name} ${st.mode === "exam" ? "考試" : "練習"}成績</h2>
-    <div><span class="big">${correct * 2}</span> 分 <span class="note">（${correct}/50 題，每題 2 分；${blankLabel}${t0 && t1 ? "；作答時間 " + mmss(t1 - t0) : ""}；及格門檻請以簡章為準）</span></div>
+    <div><span class="big">${correct * 2}</span> 分 <span class="note">（${correct}/50 題，每題 2 分；${blankLabel}${t0 && t1 ? "；作答時間 " + mmss(t1 - t0) : ""}${timedOut ? "；90 分鐘時間到，自動交卷" : ""}；及格門檻請以簡章為準）</span></div>
     <div class="bars">${chs.map(c => row("第 " + c + " 章", list.filter(q => q.chapter === c))).join("")}</div>
     <div class="bars">${TAGS.map(t => row(t, list.filter(q => hasTag(q, t)))).join("")}</div>
     <div class="note">要回頭看的題號：${wrong.length ? wrong.map(n => `<a href="#q${n}" data-jump="${n}">${n}</a>`).join("、") : "全對！"}</div>
@@ -488,17 +508,13 @@ document.addEventListener("click", (e) => {
   }
   else if (t.dataset.act === "submit") {
     const blank = qs().filter(q => ans[q.no] == null).length;
-    const go = () => {
-      submitted = true; if (t0 && !t1) t1 = Date.now();
-      qs().forEach(q => { if (ans[q.no] != null && ans[q.no] !== q.answer) nbAdd(q.no); });
-      save(); render(); document.getElementById("qlist").scrollIntoView({ behavior: "smooth" });
-    };
+    const go = () => doSubmit(false);
     blank ? ask(`還有 ${blank} 題沒作答，確定交卷？`, go) : go();
   }
   else if (t.dataset.act === "reset") {
     const msg = st.mode === "notebook" ? "開始新的一輪？錯題本裡的題目都會清成沒作答（題目不會刪掉）。"
       : `清除${SUBJ[st.subj].name}${st.mode === "exam" ? "考試" : "練習"}模式的所有作答？（錯題本不受影響）`;
-    ask(msg, () => { ans = {}; submitted = false; shown = {}; t0 = null; t1 = null; tried = {}; grad = {}; save(); render(); });
+    ask(msg, () => { ans = {}; submitted = false; shown = {}; t0 = null; t1 = null; tried = {}; grad = {}; timedOut = false; save(); render(); });
   }
 });
 // 錯題本：只有這一輪「第一次」作答算進度；連續兩輪第一次就答對 → 畢業
