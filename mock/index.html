@@ -162,6 +162,7 @@ html.embed .wrap { gap: 14px; }
     <div class="seg" role="group" aria-label="模式">
       <button id="mode-practice" data-mode="practice">練習模式</button>
       <button id="mode-exam" data-mode="exam">考試模式</button>
+      <button id="mode-notebook" data-mode="notebook">錯題本</button>
     </div>
     <div class="seg" role="group" aria-label="顯示方式">
       <button id="view-one" data-view="one">一題一題</button>
@@ -219,7 +220,7 @@ let lastEmit = "";
 function topicFor(q) {
   const sj = SUBJ[st.subj], po = ["A", "B", "C", "D"].map(k => `(${k}) ${q.per_option[k]}`).join(" ");
   return {
-    id: tid(q), kind: "mock", mode: st.mode === "exam" && !submitted ? "exam" : "practice",
+    id: tid(q), kind: "mock", mode: st.mode === "exam" && !submitted ? "exam" : "practice", notebook: st.mode === "notebook",
     title: `${sj.name}第 ${q.no} 題｜${q.topic}`, sectionName: sj.full, chapter: `第 ${q.chapter} 章 ${sj.ch[q.chapter] || ""}`,
     why: q.why_guess, summary: q.event ? `時事情境：${q.event.title}（${q.event.date}）${q.event.summary}` : "",
     keyPoints: [], trap: "", related: [],
@@ -242,13 +243,24 @@ st.view = st.view || "one";
 st.cur = st.cur || {};
 if (location.hash === "#s2") st.subj = "I12";
 if (location.hash === "#s1") st.subj = "I11";
-let ans = {}, submitted = false, shown = {}, t0 = null, t1 = null;
+// 每科每個模式各存一份作答（練習／考試／錯題本互不影響）
+// tried：錯題本這一輪每題「第一次」的結果（ok／bad）；grad：這一輪畢業的題目（留在畫面上直到下一輪）
+let ans = {}, submitted = false, shown = {}, t0 = null, t1 = null, tried = {}, grad = {};
+// 錯題本：{題號: {streak: 連續幾輪第一次就答對, misses: 累計答錯次數}}，兩種模式答錯都收進來
+let nb = {};
 const slot = () => "mock1031-" + st.subj + "-" + st.mode;
+const ck = () => st.subj + "-" + st.mode;
 function loadSubj() {
   const s = store.get(slot(), {});
   ans = s.ans || {}; submitted = !!s.submitted; shown = s.shown || {}; t0 = s.t0 || null; t1 = s.t1 || null;
+  tried = s.tried || {}; grad = s.grad || {};
+  nb = store.get("mock1031-nb-" + st.subj, {});
 }
-function save() { store.set(slot(), { ans, submitted, shown, t0, t1 }); store.set("mock1031-ui", st); }
+function save() { store.set(slot(), { ans, submitted, shown, t0, t1, tried, grad }); store.set("mock1031-ui", st); }
+const saveNb = () => store.set("mock1031-nb-" + st.subj, nb);
+const nbAdd = (n) => { nb[n] = { streak: 0, misses: ((nb[n] && nb[n].misses) || 0) + 1 }; saveNb(); };
+const nbCount = () => Object.keys(nb).length;
+const practiceDone = () => qs().every(q => ans[q.no] != null || shown[q.no]);
 const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
 function tick() {
   const el = document.getElementById("timer");
@@ -258,7 +270,8 @@ function tick() {
 }
 setInterval(tick, 1000);
 const qs = () => DATA[st.subj] || [];
-const revealed = (n) => st.mode === "practice" ? (ans[n] != null || shown[n]) : submitted;
+const revealed = (n) => st.mode === "exam" ? submitted : (ans[n] != null || shown[n]);
+const baseList = () => st.mode === "notebook" ? qs().filter(q => nb[q.no] || grad[q.no]) : qs();
 
 function renderTop() {
   document.querySelectorAll("[data-subj]").forEach(b => b.setAttribute("aria-pressed", b.dataset.subj === st.subj));
@@ -266,11 +279,14 @@ function renderTop() {
   document.querySelectorAll("[data-view]").forEach(b => b.setAttribute("aria-pressed", b.dataset.view === st.view));
   document.querySelector(".layout").classList.toggle("one", st.view === "one");
   document.getElementById("keys").hidden = st.view !== "one";
-  document.getElementById("modehint").textContent = st.mode === "practice"
-    ? "練習模式：每題選完馬上看答案、解析和猜題理由。"
-    : "考試模式：50 題寫完按「交卷」才公布答案，會計時並算分；作答紀錄和練習模式分開。";
+  document.getElementById("modehint").textContent = {
+    practice: "練習模式：每題選完馬上看答案、解析和猜題理由；50 題都做完會出成績。答錯的題目自動收進錯題本。",
+    exam: "考試模式：50 題寫完按「交卷」才公布答案，會計時並算分；作答紀錄和練習模式分開。交卷後答錯的題目收進錯題本。",
+    notebook: "錯題本：練習答錯、考試交卷後答錯的題目都在這裡。每一輪第一次就答對算一次，連續兩輪都答對就畢業移出。"
+  }[st.mode];
+  document.getElementById("mode-notebook").textContent = "錯題本 " + nbCount();
   tick();
-  const list = qs();
+  const list = baseList();
   const chips = ["全部", ...TAGS].map(t => {
     const n = t === "全部" ? list.length : list.filter(q => hasTag(q, t)).length;
     return `<button class="chip" data-filter="${t}" aria-pressed="${st.filter === t}">${t}<span class="n">${n}</span></button>`;
@@ -290,72 +306,101 @@ function qHTML(q) {
   const n = q.no, sj = SUBJ[st.subj];
   const tags = q.tags.filter(t => t !== "一般").map(t => `<span class="tag ${t.includes("時事") ? "t-news" : t.includes("常勝軍") ? "t-hot" : ""}">${H(t)}</span>`).join("");
   const ev = q.event ? `<div class="event"><b>事件小檔案｜${H(q.event.title)}（${H(q.event.date)}）</b><br>${H(q.event.summary)}${q.event.source ? `<br><a href="${H(q.event.source)}" target="_blank" rel="noopener">來源</a>` : ""}</div>` : "";
-  const lock = st.mode === "exam" ? submitted : ans[n] != null;
+  const lock = st.mode === "exam" ? submitted : ans[n] != null || !!shown[n];
   const opts = ["A", "B", "C", "D"].map(k => `<button class="${optClass(q, k)}" data-q="${n}" data-k="${k}" ${lock ? "disabled" : ""}><span class="ab">${k}</span><span>${H(q.options[k])}</span></button>`).join("");
   let rev = "";
   if (revealed(n)) {
     const a = ans[n];
     const v = a == null ? `<div class="verdict">正確答案 ${q.answer}</div>` : a === q.answer ? `<div class="verdict ok">答對了｜答案 ${q.answer}</div>` : `<div class="verdict bad">你選 ${a}，正確答案 ${q.answer}</div>`;
-    rev = `<div class="reveal">${v}<div>${H(q.explanation)}</div>
+    let nbLine = "";
+    if (st.mode === "notebook") {
+      const e = nb[n];
+      const note = grad[n] ? "連續兩輪第一次就答對，畢業了！已移出錯題本。"
+        : tried[n] === "bad" && a === q.answer ? "這次答對了，但這一輪第一次答錯，不算進度；下一輪再試。"
+        : e ? `錯題本進度：連續 ${e.streak}／2 輪第一次就答對。` : "";
+      const retry = !grad[n] && a !== q.answer ? `<button class="btn ghost showbtn" data-retry="${n}">再試一次（不算進度）</button>` : "";
+      nbLine = `<div class="why"><b>錯題本：</b>${note}</div>${retry}`;
+    } else if (st.mode === "practice" && a !== q.answer) {
+      nbLine = `<div class="ref">這題已收進錯題本。</div>`;
+    }
+    rev = `<div class="reveal">${v}${nbLine}<div>${H(q.explanation)}</div>
       <ul class="po">${["A", "B", "C", "D"].map(k => `<li><b>${k}</b><span>${H(q.per_option[k])}</span></li>`).join("")}</ul>
       <div class="why"><b>為什麼猜這題：</b>${H(q.why_guess)}</div>
       <div class="ref">出處：${H(q.guide_ref)}</div></div>`;
-  } else if (st.mode === "practice") {
+  } else if (st.mode !== "exam") {
     rev = `<button class="btn ghost showbtn" data-show="${n}">不作答，直接看解析</button>`;
   }
   return `<article class="q" id="q${n}"><div class="qhead"><span class="qno">${n}</span><span class="meta">第 ${H(q.chapter)} 章 ${H(sj.ch[q.chapter] || "")}</span>${tags}</div>${ev}<p class="stem">${H(q.stem)}</p><div class="opts">${opts}</div>${rev}</article>`;
 }
 
-const visible = () => qs().filter(q => st.filter === "全部" || hasTag(q, st.filter));
+const visible = () => baseList().filter(q => st.filter === "全部" || hasTag(q, st.filter));
 function curIndex(list) {
-  let i = list.findIndex(q => q.no === st.cur[st.subj]);
-  if (i < 0 && list.length) { i = 0; st.cur[st.subj] = list[0].no; }
+  let i = list.findIndex(q => q.no === st.cur[ck()]);
+  if (i < 0 && list.length) { i = 0; st.cur[ck()] = list[0].no; }
   return i;
 }
+const showsResult = () => (st.mode === "exam" && submitted) || (st.mode === "practice" && practiceDone());
 function navHTML(i, n) {
   const next = i < n - 1 ? `<button class="btn" data-go="1">下一題 →</button>`
-    : st.mode === "exam" && !submitted ? `<button class="btn" data-act="submit">交卷</button>` : `<button class="btn" disabled>已是最後一題</button>`;
+    : st.mode === "exam" && !submitted ? `<button class="btn" data-act="submit">交卷</button>`
+    : showsResult() || st.mode === "notebook" ? `<button class="btn" data-act="top">${st.mode === "notebook" ? "看這一輪結果" : "看成績"}</button>`
+    : `<button class="btn" disabled>已是最後一題</button>`;
   return `<nav class="nav" aria-label="換題"><button class="btn ghost" data-go="-1" ${i === 0 ? "disabled" : ""}>← 上一題</button><span class="pos">${i + 1} / ${n}</span>${next}</nav>`;
 }
 function go(d) {
   const list = visible();
   if (!list.length) return;
   const i = Math.min(Math.max(curIndex(list) + d, 0), list.length - 1);
-  st.cur[st.subj] = list[i].no; save(); renderList(); renderCard();
+  st.cur[ck()] = list[i].no; save(); renderList(); renderCard();
   const el = document.getElementById("qlist");
   if (el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
 }
 function renderList() {
   const list = visible();
   let html = "";
-  if (st.mode === "exam" && submitted) html += resultHTML();
+  if (showsResult()) html += resultHTML();
+  if (st.mode === "notebook") html += nbHeadHTML(list);
   if (st.view === "one" && list.length) {
     const i = curIndex(list);
     html += qHTML(list[i]) + navHTML(i, list.length);
     emitCurrent(list[i]);
   } else html += list.map(qHTML).join("");
-  document.getElementById("qlist").innerHTML = html || `<p class="note">這個分類沒有題目。</p>`;
+  if (!list.length && st.mode !== "notebook") html += `<p class="note">這個分類沒有題目。</p>`;
+  document.getElementById("qlist").innerHTML = html;
+}
+function nbHeadHTML(list) {
+  const sj = SUBJ[st.subj].name;
+  if (!baseList().length) return `<section class="result"><h2>${sj} 錯題本是空的</h2><p class="note">練習模式答錯、按「直接看解析」，或考試模式交卷後答錯的題目，會自動收進來。</p></section>`;
+  if (!list.length) return `<section class="result"><p class="note">錯題本裡沒有這個分類的題目，換一個分類或按「全部」。</p></section>`;
+  const done = list.filter(q => tried[q.no]).length, firstOk = list.filter(q => tried[q.no] === "ok").length;
+  const g = Object.keys(grad).length, finished = done === list.length;
+  return `<section class="result"><h2>${sj} 錯題本・${nbCount()} 題</h2>
+    <div class="note">這一輪：做了 ${done}／${list.length} 題，第一次就答對 ${firstOk} 題${g ? `，畢業 ${g} 題` : ""}。${finished ? "這一輪做完了！按右邊（手機在下面）的「開始新的一輪」再練一次，連續兩輪都答對的題目就會畢業。" : ""}</div></section>`;
 }
 
 function renderCard() {
-  const list = qs();
+  const list = qs(), inBase = new Set(baseList().map(q => q.no));
   const answered = list.filter(q => ans[q.no] != null).length;
   const correct = list.filter(q => ans[q.no] === q.answer).length;
-  const showScore = st.mode === "practice" || submitted;
-  document.getElementById("progress").textContent = showScore ? `${correct} 對／已答 ${answered}` : `已答 ${answered}／${list.length}`;
+  const showScore = st.mode !== "exam" || submitted;
+  document.getElementById("progress").textContent = st.mode === "notebook" ? `錯題 ${nbCount()} 題`
+    : showScore ? `${correct} 對／已答 ${answered}` : `已答 ${answered}／${list.length}`;
   document.getElementById("bubbles").innerHTML = list.map(q => {
     let c = "bub";
-    const a = ans[q.no];
+    const a = ans[q.no], off = !inBase.has(q.no);
     if (revealed(q.no) && a != null) c += a === q.answer ? " ok" : " bad";
     else if (a != null) c += " done";
     if (q.event) c += " ev";
-    if (st.filter !== "全部" && !hasTag(q, st.filter)) c += " dim";
-    if (st.view === "one" && q.no === st.cur[st.subj]) c += " cur";
-    return `<button class="${c}" data-jump="${q.no}" aria-label="第 ${q.no} 題">${a && (st.mode === "exam" && !submitted) ? a : q.no}</button>`;
+    if (off || (st.filter !== "全部" && !hasTag(q, st.filter))) c += " dim";
+    if (st.view === "one" && q.no === st.cur[ck()]) c += " cur";
+    return `<button class="${c}" data-jump="${q.no}" aria-label="第 ${q.no} 題" ${off ? "disabled" : ""}>${a && (st.mode === "exam" && !submitted) ? a : q.no}</button>`;
   }).join("");
   const acts = [];
   if (st.mode === "exam" && !submitted) acts.push(`<button class="btn" data-act="submit">交卷</button>`);
-  acts.push(`<button class="btn ghost" data-act="reset">清除作答</button>`);
+  if (st.mode === "notebook") {
+    acts.push(`<button class="btn" data-act="reset">開始新的一輪</button>`);
+    if (nbCount()) acts.push(`<button class="btn ghost" data-act="nbclear">清空錯題本</button>`);
+  } else acts.push(`<button class="btn ghost" data-act="reset">清除作答</button>`);
   document.getElementById("actions").innerHTML = acts.join("");
 }
 
@@ -363,6 +408,7 @@ function resultHTML() {
   const list = qs();
   const correct = list.filter(q => ans[q.no] === q.answer).length;
   const blank = list.filter(q => ans[q.no] == null).length;
+  const blankLabel = st.mode === "practice" ? `直接看解析 ${blank} 題（算答錯）` : `未作答 ${blank} 題`;
   const row = (label, sub) => {
     const c = sub.filter(q => ans[q.no] === q.answer).length;
     const p = sub.length ? Math.round(c / sub.length * 100) : 0;
@@ -370,11 +416,12 @@ function resultHTML() {
   };
   const chs = [...new Set(list.map(q => q.chapter))];
   const wrong = list.filter(q => ans[q.no] !== q.answer).map(q => q.no);
-  return `<section class="result"><h2>${SUBJ[st.subj].name} 成績</h2>
-    <div><span class="big">${correct * 2}</span> 分 <span class="note">（${correct}/50 題，每題 2 分；未作答 ${blank} 題${t0 && t1 ? "；作答時間 " + mmss(t1 - t0) : ""}；及格門檻請以簡章為準）</span></div>
+  return `<section class="result"><h2>${SUBJ[st.subj].name} ${st.mode === "exam" ? "考試" : "練習"}成績</h2>
+    <div><span class="big">${correct * 2}</span> 分 <span class="note">（${correct}/50 題，每題 2 分；${blankLabel}${t0 && t1 ? "；作答時間 " + mmss(t1 - t0) : ""}；及格門檻請以簡章為準）</span></div>
     <div class="bars">${chs.map(c => row("第 " + c + " 章", list.filter(q => q.chapter === c))).join("")}</div>
     <div class="bars">${TAGS.map(t => row(t, list.filter(q => hasTag(q, t)))).join("")}</div>
-    <div class="note">要回頭看的題號：${wrong.length ? wrong.map(n => `<a href="#q${n}" data-jump="${n}">${n}</a>`).join("、") : "全對！"}</div></section>`;
+    <div class="note">要回頭看的題號：${wrong.length ? wrong.map(n => `<a href="#q${n}" data-jump="${n}">${n}</a>`).join("、") : "全對！"}</div>
+    <div class="actions"><button class="btn" data-mode="notebook">去錯題本重做（${nbCount()} 題）</button></div></section>`;
 }
 
 function render() { renderTop(); renderList(); renderCard(); }
@@ -396,28 +443,42 @@ document.addEventListener("click", (e) => {
   else if (t.dataset.go) { go(+t.dataset.go); }
   else if (t.dataset.filter) { st.filter = t.dataset.filter; save(); render(); }
   else if (t.dataset.k) {
-    const n = +t.dataset.q;
+    const n = +t.dataset.q, q = qs().find(x => x.no === n), ok = t.dataset.k === q.answer;
+    const wasDone = showsResult();
     ans[n] = t.dataset.k;
     if (st.mode === "exam" && !t0) t0 = Date.now();
+    if (st.mode === "practice" && !ok) nbAdd(n);
+    if (st.mode === "notebook") firstTry(n, ok);
     save(); tick();
-    const q = qs().find(x => x.no === n);
     emitCurrent(q);
-    if (st.mode === "practice") emit({ type: "answer", topicId: tid(q), qi: 0, picked: "ABCD".indexOf(ans[n]), tries: 1 });
-    document.getElementById("q" + n).outerHTML = qHTML(q);
-    renderCard();
+    if (st.mode !== "exam") emit({ type: "answer", topicId: tid(q), qi: 0, picked: "ABCD".indexOf(ans[n]), tries: 1 });
+    afterAnswer(q, wasDone);
   }
   else if (t.dataset.show) {
-    shown[+t.dataset.show] = true; save();
-    const q = qs().find(x => x.no === +t.dataset.show);
-    document.getElementById("q" + q.no).outerHTML = qHTML(q);
+    const n = +t.dataset.show, q = qs().find(x => x.no === n), wasDone = showsResult();
+    shown[n] = true;
+    if (st.mode === "practice") nbAdd(n);
+    if (st.mode === "notebook") firstTry(n, false);
+    save();
     emitCurrent(q); emit({ type: "reveal", topicId: tid(q), qi: 0 });
+    afterAnswer(q, wasDone);
+  }
+  else if (t.dataset.retry) {
+    const n = +t.dataset.retry; delete ans[n]; delete shown[n]; save();
+    document.getElementById("q" + n).outerHTML = qHTML(qs().find(x => x.no === n));
+  }
+  else if (t.dataset.act === "top") {
+    document.getElementById("qlist").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  else if (t.dataset.act === "nbclear") {
+    ask(`清空${SUBJ[st.subj].name}的錯題本？裡面的 ${nbCount()} 題會全部移除。`, () => { nb = {}; saveNb(); ans = {}; shown = {}; tried = {}; grad = {}; save(); render(); });
   }
   else if (t.dataset.jump) {
     e.preventDefault();
     const n = t.dataset.jump;
     if (st.view === "one") {
       if (!visible().some(q => q.no === +n)) st.filter = "全部";
-      st.cur[st.subj] = +n; save(); render();
+      st.cur[ck()] = +n; save(); render();
       const el = document.getElementById("qlist");
       if (el.getBoundingClientRect().top < 0 || el.getBoundingClientRect().top > innerHeight * 0.6) el.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
@@ -427,13 +488,41 @@ document.addEventListener("click", (e) => {
   }
   else if (t.dataset.act === "submit") {
     const blank = qs().filter(q => ans[q.no] == null).length;
-    const go = () => { submitted = true; if (t0 && !t1) t1 = Date.now(); save(); render(); document.getElementById("qlist").scrollIntoView({ behavior: "smooth" }); };
+    const go = () => {
+      submitted = true; if (t0 && !t1) t1 = Date.now();
+      qs().forEach(q => { if (ans[q.no] != null && ans[q.no] !== q.answer) nbAdd(q.no); });
+      save(); render(); document.getElementById("qlist").scrollIntoView({ behavior: "smooth" });
+    };
     blank ? ask(`還有 ${blank} 題沒作答，確定交卷？`, go) : go();
   }
   else if (t.dataset.act === "reset") {
-    ask(`清除${SUBJ[st.subj].name}${st.mode === "exam" ? "考試" : "練習"}模式的所有作答？`, () => { ans = {}; submitted = false; shown = {}; t0 = null; t1 = null; save(); render(); });
+    const msg = st.mode === "notebook" ? "開始新的一輪？錯題本裡的題目都會清成沒作答（題目不會刪掉）。"
+      : `清除${SUBJ[st.subj].name}${st.mode === "exam" ? "考試" : "練習"}模式的所有作答？（錯題本不受影響）`;
+    ask(msg, () => { ans = {}; submitted = false; shown = {}; t0 = null; t1 = null; tried = {}; grad = {}; save(); render(); });
   }
 });
+// 錯題本：只有這一輪「第一次」作答算進度；連續兩輪第一次就答對 → 畢業
+function firstTry(n, ok) {
+  if (tried[n]) return;
+  tried[n] = ok ? "ok" : "bad";
+  const e = nb[n];
+  if (!e) return;
+  if (ok) { e.streak += 1; if (e.streak >= 2) { delete nb[n]; grad[n] = true; } }
+  else { e.streak = 0; e.misses += 1; }
+  saveNb();
+}
+// 作答後：剛好全部做完就整頁重畫（出成績／這一輪結果），否則只換這一題
+function afterAnswer(q, wasDone) {
+  const nowDone = showsResult() || (st.mode === "notebook" && visible().every(x => tried[x.no]));
+  if (nowDone && !wasDone) {
+    renderTop(); renderList(); renderCard();
+    if (st.view === "all" || st.mode !== "notebook") document.getElementById("qlist").scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  const el = document.getElementById("q" + q.no);
+  if (st.mode === "notebook") renderList(); else if (el) el.outerHTML = qHTML(q);
+  renderTop(); renderCard();
+}
 document.addEventListener("keydown", (e) => {
   if (st.view !== "one" || e.altKey || e.ctrlKey || e.metaKey || document.getElementById("confirm").hidden === false) return;
   if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
