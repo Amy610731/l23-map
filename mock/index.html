@@ -81,6 +81,15 @@ html.embed .wrap { gap: 14px; }
 .timer { font-family: var(--f-mono); font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
 .timer.low, .navtimer.low { color: var(--bad); font-weight: 700; }
 .navtimer { font-family: var(--f-mono); font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+/* 考試模式的倒數鐘：黏在畫面上方，捲動時也看得到 */
+.examclock { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  background: var(--sheet); border: 2px solid var(--card-red); border-radius: 6px; padding: 8px 14px; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+.examclock .t { font-family: var(--f-mono); font-size: 30px; font-weight: 600; line-height: 1; color: var(--card-red); font-variant-numeric: tabular-nums; }
+.examclock .lbl { font-size: 14px; color: var(--ink-soft); }
+.examclock .btn { margin-left: auto; }
+.examclock.low { background: var(--bad-soft); border-color: var(--bad); }
+.examclock.low .t { color: var(--bad); }
+.examclock.done .t { color: var(--ink); }
 .nav .mid { display: grid; justify-items: center; gap: 0; }
 
 /* 劃記卡 */
@@ -177,6 +186,7 @@ html.embed .wrap { gap: 14px; }
     </div>
   </div>
   <p class="modehint" id="modehint"></p>
+  <div class="examclock" id="examclock" role="timer" aria-live="off" hidden><span class="t" id="clock-t">90:00</span><span class="lbl" id="clock-l"></span><button class="btn" id="clock-start" data-act="start">開始計時</button></div>
   <div class="chips" id="chips" role="group" aria-label="依猜題理由篩選"></div>
 
   <div class="layout">
@@ -267,9 +277,10 @@ const nbCount = () => Object.keys(nb).length;
 const practiceDone = () => qs().every(q => ans[q.no] != null || shown[q.no]);
 const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
 function tick() {
-  const el = document.getElementById("timer"), nt = document.querySelector(".navtimer");
-  el.hidden = st.mode !== "exam";
+  const el = document.getElementById("timer"), nt = document.querySelector(".navtimer"), clock = document.getElementById("examclock");
+  el.hidden = clock.hidden = st.mode !== "exam";
   if (el.hidden) { if (nt) nt.textContent = ""; return; }
+  tickClock(clock);
   if (t0 && !submitted && Date.now() - t0 >= LIMIT) { doSubmit(true); return; }
   const left = t0 && !submitted ? LIMIT - (Date.now() - t0) : null, low = left != null && left < 5 * 60 * 1000;
   el.textContent = !t0 ? "限時 90 分鐘：作答第一題後開始倒數"
@@ -279,6 +290,15 @@ function tick() {
   if (nt) { nt.textContent = left != null ? "剩 " + mmss(left) : ""; nt.classList.toggle("low", low); }
 }
 setInterval(tick, 1000);
+// 上方大字倒數鐘：還沒開始顯示 90:00＋「開始計時」；考試中倒數；交卷後顯示用了多久
+function tickClock(clock) {
+  const left = t0 && !submitted ? Math.max(0, LIMIT - (Date.now() - t0)) : null;
+  document.getElementById("clock-t").textContent = submitted && t0 ? mmss((t1 || Date.now()) - t0) : mmss(left == null ? LIMIT : left);
+  document.getElementById("clock-l").textContent = submitted ? (timedOut ? "時間到，已自動交卷" : "已交卷，作答時間") : left == null ? "限時 90 分鐘・按「開始計時」或作答第一題就開始倒數" : "剩餘時間";
+  document.getElementById("clock-start").hidden = !!t0 || submitted;
+  clock.classList.toggle("low", left != null && left < 5 * 60 * 1000);
+  clock.classList.toggle("done", submitted);
+}
 // 交卷（手動或時間到）：答錯的題目收進錯題本
 function doSubmit(timeout) {
   if (submitted) return;
@@ -486,6 +506,9 @@ document.addEventListener("click", (e) => {
   else if (t.dataset.retry) {
     const n = +t.dataset.retry; delete ans[n]; delete shown[n]; save();
     document.getElementById("q" + n).outerHTML = qHTML(qs().find(x => x.no === n));
+  }
+  else if (t.dataset.act === "start") {
+    if (st.mode === "exam" && !t0 && !submitted) { t0 = Date.now(); save(); tick(); }
   }
   else if (t.dataset.act === "top") {
     document.getElementById("qlist").scrollIntoView({ behavior: "smooth", block: "start" });
