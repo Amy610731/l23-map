@@ -710,9 +710,10 @@ $("days").textContent = days > 0 ? days : "考試日";
 Object.keys(wrongBook).forEach(k => { if (!resolveWB(wrongBook[k])) delete wrongBook[k]; });  // 題目被改過／刪掉就不留
 renderStats(); showHome(); resetView(); refreshDim(); updateWbBtn();
 document.addEventListener("keydown", e => { if (e.key === "Escape") showHome(); });
-// 直達網址 #t=考點id（模擬考的「到星圖複習」用）；星圖沒有這個考點就退到它的小節
+// 直達網址 ?t=考點id 或 #t=考點id（模擬考的「到星圖複習」用）；星圖沒有這個考點就退到它的小節
+// 用 ?t= 為主：換了網址不會拿到瀏覽器暫存的舊版，外部連結轉址也不會把 # 後段丟掉
 function openHash(){
-  const id = decodeURIComponent((location.hash.match(/^#t=(.+)$/) || [])[1] || ""); if (!id) return;
+  const id = new URLSearchParams(location.search).get("t") || decodeURIComponent((location.hash.match(/^#t=(.+)$/) || [])[1] || ""); if (!id) return;
   if (byId[id]) { openTopic(id, true); return; }
   const s = secById[id.split("-")[0]]; if (s) { zoomToSection(s); showSection(s.id); }
 }
