@@ -128,11 +128,14 @@ html.embed .wrap { gap: 14px; }
 @media (max-width: 860px) { .bubbles { grid-template-columns: repeat(10, 1fr); } }
 @media (max-width: 480px) { .bubbles { grid-template-columns: repeat(5, 1fr); } }
 .bub { display: grid; place-items: center; height: 30px; min-width: 0; border: 1px solid var(--line); border-radius: 3px; background: transparent; font-family: var(--f-mono); font-size: 12px; color: var(--card-red); font-variant-numeric: tabular-nums; position: relative; padding: 0; }
-.bub.done { background: var(--pencil); color: var(--sheet); border-color: var(--pencil); }
+.bub.done { background: var(--ok); color: var(--sheet); border-color: var(--ok); font-weight: 700; }
+.bub.fl:not(.ok):not(.bad) { background: var(--news); color: var(--sheet); border-color: var(--news); font-weight: 700; }
 .bub.ok { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
 .bub.bad { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
 .bub.dim { opacity: .25; }
-.bub.fl::after { content: ""; position: absolute; top: 2px; right: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--news); }
+.bub.fl.ok::after, .bub.fl.bad::after { content: ""; position: absolute; top: 2px; right: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--news); }
+.legend b { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.legend b.g { background: var(--ok); } .legend b.y { background: var(--news); }
 .legend { font-size: 12px; color: var(--ink-soft); display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .legend i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--news); margin-right: 4px; vertical-align: middle; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -582,7 +585,7 @@ function renderCard(){
   $("#progress").textContent = book ? (nbShowDone ? `${all.length} 題` : `待複習 ${nbActiveCount()} 題`)
     : exam && !ex?.done ? `已答 ${answered}／${all.length}` : `${correct} 對／已答 ${answered}`;
   $("#legend").innerHTML = book ? "<span>綠＝這次答對　紅＝這次答錯</span><span>點格子跳到該題</span>"
-    : exam ? (ex?.done ? "<span>綠＝答對　紅＝答錯／沒作答</span><span><i></i>有標記</span><span>點格子跳到該題</span>" : "<span><i></i>標記待檢查</span><span>深色＝已作答</span><span>點格子跳到該題</span>")
+    : exam ? (ex?.done ? "<span>綠＝答對　紅＝答錯／沒作答</span><span><i></i>有標記</span><span>點格子跳到該題</span>" : "<span><b class=\"g\"></b>已作答</span><span><b class=\"y\"></b>標記待檢查</span><span>點格子跳到該題</span>")
     : "<span>綠＝答對　紅＝答錯（已收進錯題本）</span><span>點格子跳到該題</span>";
   const acts = [];
   if (exam && !ex?.done) { acts.push(`<button class="btn" data-act="submit">交卷</button>`); acts.push(`<button class="btn ghost" data-act="reset">清除作答</button>`); }
