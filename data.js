@@ -3025,6 +3025,63 @@ window.MAP_DATA = {
    ]
   },
   {
+   "id": "4.3-19",
+   "section": "4.3",
+   "title": "程式碼閱讀：深度學習",
+   "examHits": 0,
+   "examRefs": [],
+   "guidePages": "未載",
+   "summary": "胡小帥 10/27 分享的考法：看 Keras／PyTorch 程式碼判斷輸出層、損失函數、輸出形狀或參數量。二分類：Dense(1, activation='sigmoid')＋binary_crossentropy；多分類：Dense(K, activation='softmax')＋categorical_crossentropy（標籤為整數時用 sparse_categorical_crossentropy）；迴歸：線性輸出＋MSE。PyTorch 的 nn.CrossEntropyLoss 內含 LogSoftmax，模型最後輸出 logits 不必再加 softmax。Conv2D padding='same' 保持寬高、MaxPooling2D(2) 寬高減半、Flatten 後長度＝高×寬×通道。",
+   "keyPoints": [
+    "Dense 參數量＝(輸入維度＋1)×神經元數",
+    "Conv2D 參數量＝(kh×kw×輸入通道＋1)×濾鏡數",
+    "model.compile(optimizer, loss, metrics) 與 model.fit(epochs, batch_size, validation_split)",
+    "EarlyStopping(monitor='val_loss', patience=…)"
+   ],
+   "trap": "PyTorch CrossEntropyLoss 前又加 softmax；整數標籤卻用 categorical_crossentropy",
+   "quiz": [
+    {
+     "stem": "手寫數字分類（0～9 共 10 類）的 Keras 模型如下，y_train 是 0～9 的整數（沒有做 one-hot）：\nmodel = Sequential([Flatten(input_shape=(28, 28)), Dense(128, activation='relu'), Dense(10, activation='softmax')])\nmodel.compile(optimizer='adam', loss=?, metrics=['accuracy'])\nloss 最適合填入哪一個？",
+     "options": [
+      "'binary_crossentropy'",
+      "'categorical_crossentropy'",
+      "'sparse_categorical_crossentropy'",
+      "'mse'"
+     ],
+     "answer": 2,
+     "hint": "10 類 softmax 是多分類；再看標籤的格式：整數，還是 one-hot 向量？",
+     "explanation": "答案 C。多分類＋softmax 用交叉熵；標籤是整數時用 sparse_categorical_crossentropy。B：categorical_crossentropy 要求標籤是 one-hot。A：binary 用於二分類（sigmoid 一個輸出）。D：MSE 是迴歸用。",
+     "source": "自編練習題（胡小帥 10/27 分享考法）"
+    },
+    {
+     "stem": "某工程師的 PyTorch 分類模型最後一層是 nn.Linear(64, 5) 接 nn.Softmax(dim=1)，損失函數用 nn.CrossEntropyLoss()，訓練收斂得很慢。下列敘述何者最正確？",
+     "options": [
+      "應把 CrossEntropyLoss 換成 MSELoss",
+      "nn.CrossEntropyLoss 內部已含 LogSoftmax，模型應直接輸出 logits，拿掉 Softmax",
+      "應把 Softmax 換成 Sigmoid",
+      "5 類分類必須用 nn.BCELoss"
+     ],
+     "answer": 1,
+     "hint": "PyTorch 的 CrossEntropyLoss 期待輸入的是「機率」還是「未經處理的分數（logits）」？",
+     "explanation": "答案 B。nn.CrossEntropyLoss 等於 LogSoftmax＋NLLLoss，自己會做 softmax；模型外面再加一次 Softmax，梯度被壓扁，訓練變慢。A：分類不用 MSE。C：Sigmoid 是二分類或多標籤用。D：BCELoss 是二元交叉熵，不是 5 類單選。",
+     "source": "自編練習題（胡小帥 10/27 分享考法）"
+    },
+    {
+     "stem": "Keras 模型中，前一層輸出為 100 維，接著一層 Dense(64)。這一層 Dense 共有多少個可訓練參數？",
+     "options": [
+      "6,400",
+      "6,464",
+      "6,500",
+      "164"
+     ],
+     "answer": 1,
+     "hint": "每個神經元都有「每個輸入一個權重」，再加上自己的一個偏差（bias）。",
+     "explanation": "答案 B。Dense 參數量＝(輸入維度＋1)×神經元數＝(100＋1)×64＝6,464。A 漏算 64 個 bias。C 把 bias 算成 100 個。D 只是 100＋64，沒有相乘。",
+     "source": "自編練習題（胡小帥 10/27 分享考法）"
+    }
+   ]
+  },
+  {
    "id": "5.1-01",
    "section": "5.1",
    "title": "特徵轉換與縮放",
@@ -3429,6 +3486,63 @@ window.MAP_DATA = {
      "hint": "要讓「首尾相接」成立，需要把數值放到一個「圓」上，哪一類數學函數可以辦到？",
      "explanation": "答案 A。用 sin／cos 做週期性編碼，把小時映射到圓周上，23 點與 0 點的座標就會很接近。B 錯：Min-Max 只改尺度，23 點與 0 點仍是 1 與 0，距離最遠；C 錯：Label Encoding 一樣給整數，同樣不保留循環關係；D 錯：小時往往與來客數高度相關，刪掉會損失資訊。",
      "source": "自編"
+    }
+   ]
+  },
+  {
+   "id": "5.1-09",
+   "section": "5.1",
+   "title": "程式碼閱讀：前處理",
+   "examHits": 0,
+   "examRefs": [],
+   "guidePages": "未載",
+   "summary": "胡小帥 10/27 分享主打的考法：看 pandas／sklearn 前處理程式碼判斷結果或錯誤。常見函式：read_csv、dropna、fillna（mean／median／mode()[0]）、get_dummies（drop_first=True 避免虛擬變數陷阱）、LabelEncoder／OrdinalEncoder（有順序類別）、train_test_split（test_size、random_state、stratify）、StandardScaler／MinMaxScaler（訓練集 fit_transform、測試集只 transform）、np.log1p 處理右偏。",
+   "keyPoints": [
+    "mode() 可能回傳多個值，要取 [0]",
+    "高基數類別（上千類）用 One-hot 會維度爆炸，可改 target encoding 或 hashing",
+    "測試集也 fit scaler＝資料洩漏",
+    "stratify=y 讓切分後類別比例一致"
+   ],
+   "trap": "把 fit_transform 用在測試集；以為 get_dummies 會自動處理順序關係",
+   "quiz": [
+    {
+     "stem": "某團隊用下列程式做標準化：\nscaler = StandardScaler()\nX_train_s = scaler.fit_transform(X_train)\nX_test_s = scaler.fit_transform(X_test)\n關於這段程式，下列敘述何者正確？",
+     "options": [
+      "程式正確，訓練集與測試集各自標準化才公平",
+      "測試集應改用 scaler.transform(X_test)，沿用訓練集算出的平均數與標準差",
+      "應先合併訓練集與測試集再一起 fit_transform，統計量才準確",
+      "StandardScaler 不需要 fit，直接呼叫 transform 即可"
+     ],
+     "answer": 1,
+     "hint": "fit 是「從資料算出平均數與標準差」。測試集代表未來的新資料，它的統計量在訓練時拿得到嗎？",
+     "explanation": "答案 B。scaler 只能在訓練集 fit，測試集只做 transform，兩邊才用同一把尺。A：測試集各自 fit 會讓同樣的原始值被換成不同數字，尺度不一致。C：合併後 fit 會讓測試集的資訊混進訓練，是資料洩漏。D：沒有 fit 就沒有平均數與標準差，transform 會報錯。",
+     "source": "自編練習題（胡小帥 10/27 分享考法）"
+    },
+    {
+     "stem": "資料表 df 的「城市」欄有台北、台中、高雄三個類別。執行 pd.get_dummies(df, columns=['城市'], drop_first=True) 之後，「城市」會被轉成幾個欄位？",
+     "options": [
+      "1 個",
+      "2 個",
+      "3 個",
+      "4 個"
+     ],
+     "answer": 1,
+     "hint": "One-hot 原本是幾類就幾欄；drop_first=True 會拿掉哪一欄、為什麼拿掉也不會遺失資訊？",
+     "explanation": "答案 B。三個類別 One-hot 本來是 3 欄，drop_first=True 刪掉第一欄，剩 2 欄；兩欄都是 0 就代表被刪掉的那一類，資訊沒有遺失，還能避免虛擬變數陷阱（欄位完全共線）。",
+     "source": "自編練習題（胡小帥 10/27 分享考法）"
+    },
+    {
+     "stem": "用眾數補類別欄位的缺失值時，常見寫法是 df['職業'].fillna(df['職業'].mode()[0])。這裡要加上 [0] 的主要原因是什麼？",
+     "options": [
+      "mode() 回傳的是 Series，可能有好幾個並列的眾數，要取出第一個值",
+      "[0] 代表只補第一筆缺失值",
+      "[0] 會把類別轉成數字 0 再補進去",
+      "沒有 [0] 也完全一樣，只是習慣寫法"
+     ],
+     "answer": 0,
+     "hint": "想想如果有兩個類別出現次數一樣多，mode() 會回傳什麼型態？",
+     "explanation": "答案 A。mode() 回傳 Series，若有並列眾數會有多個值；直接拿 Series 去 fillna 會依索引對齊，結果不是預期的「全部補同一個值」。B、C：[0] 只是取 Series 的第一個元素，與補第幾筆、轉成數字無關。D：沒有 [0] 行為會不同。",
+     "source": "自編練習題（胡小帥 10/27 分享考法）"
     }
    ]
   },
@@ -4124,6 +4238,63 @@ window.MAP_DATA = {
      "hint": "想想誰負責「學習」、誰負責「調整」、誰負責「最終檢驗」；最終檢驗的資料能不能被用來做決策？",
      "explanation": "答案 D。驗證集負責超參數調整與訓練監控，測試集僅在訓練完成後做最終評估。A 錯：用測試集調參會讓最終評估失真；B 錯：訓練集上的表現無法反映泛化能力；C 錯：把驗證集併入測試集訓練，會讓兩者都失去評估功能。",
      "source": "自編"
+    }
+   ]
+  },
+  {
+   "id": "5.3-09",
+   "section": "5.3",
+   "title": "資料洩漏與 Pipeline",
+   "examHits": 0,
+   "examRefs": [],
+   "guidePages": "未載",
+   "summary": "胡小帥 10/27 分享最強調的雷：在切分或交叉驗證之前就對全資料做標準化、特徵選擇、SMOTE、LDA 等「會看資料」的步驟，驗證分數會被高估。正確做法是把前處理放進 Pipeline，讓每一折只用該折訓練資料 fit；含重採樣（SMOTE）時要用 imblearn 的 Pipeline（sklearn Pipeline 不支援 fit_resample），並搭配 StratifiedKFold。時間序列不可隨機打亂，要用 TimeSeriesSplit／滾動窗口驗證。",
+   "keyPoints": [
+    "cross_val_score(pipeline, X, y, cv=StratifiedKFold(5)) 才不洩漏",
+    "SMOTE 只能做在訓練折，不可做在驗證／測試資料",
+    "目標變數衍生出的特徵（事後才知道的資訊）也是洩漏",
+    "GridSearchCV 傳入 Pipeline，參數名用 步驟名__參數"
+   ],
+   "trap": "先對整份資料 SMOTE 再交叉驗證，分數虛高",
+   "quiz": [
+    {
+     "stem": "某團隊處理詐欺偵測（詐欺只佔 2%），程式如下：\nX_res, y_res = SMOTE().fit_resample(X, y)\nscores = cross_val_score(model, X_res, y_res, cv=5)\n交叉驗證分數非常高，上線後卻明顯變差。最可能的原因是什麼？",
+     "options": [
+      "cv=5 太少，應改成 cv=10",
+      "SMOTE 在切分前對全資料執行，合成樣本參考了驗證折的資料，造成資料洩漏",
+      "SMOTE 會刪除多數類樣本，讓資料量不足",
+      "詐欺資料不適合使用交叉驗證"
+     ],
+     "answer": 1,
+     "hint": "SMOTE 是用「鄰近的少數類樣本」合成新樣本。如果在切折之前就做，驗證折裡的樣本會不會也被拿去合成？",
+     "explanation": "答案 B。先對全資料 SMOTE，合成樣本會參考到之後被分進驗證折的真實樣本，驗證時等於看過答案，分數虛高。正確做法是用 imblearn 的 Pipeline 把 SMOTE 和模型包起來，交給 cross_val_score 搭配 StratifiedKFold，讓每一折只對訓練折重採樣。A：折數不是根因。C：SMOTE 是增加少數類，不是刪除多數類。D：不平衡資料可以交叉驗證，要用分層。",
+     "source": "自編練習題（胡小帥 10/27 分享考法）"
+    },
+    {
+     "stem": "pipe = Pipeline([('scaler', StandardScaler()), ('svc', SVC())])\n要用 GridSearchCV(pipe, param_grid, cv=5) 調整 SVC 的參數 C，param_grid 的鍵（key）應該怎麼寫？",
+     "options": [
+      "{'C': [0.1, 1, 10]}",
+      "{'svc.C': [0.1, 1, 10]}",
+      "{'svc__C': [0.1, 1, 10]}",
+      "{'SVC_C': [0.1, 1, 10]}"
+     ],
+     "answer": 2,
+     "hint": "Pipeline 裡每個步驟都有名字，參數要指明「哪個步驟的哪個參數」，中間用什麼符號連接？",
+     "explanation": "答案 C。Pipeline 的參數名格式是「步驟名__參數名」（兩個底線），這裡步驟名是 'svc'，所以寫 svc__C。A：沒指定步驟，GridSearchCV 不知道 C 屬於誰，會報錯。B、D：不是 sklearn 的命名規則。把標準化放進 Pipeline，每一折都只用訓練折 fit，也順便避免洩漏。",
+     "source": "自編練習題（胡小帥 10/27 分享考法）"
+    },
+    {
+     "stem": "某團隊用過去三年每日銷售資料預測下週銷量，交叉驗證用 KFold(n_splits=5, shuffle=True)，驗證分數很好，實際預測卻很差。最合適的改善方式是什麼？",
+     "options": [
+      "改用 StratifiedKFold，讓每一折的銷量分佈一致",
+      "把 n_splits 提高到 10，讓驗證更穩定",
+      "改用 TimeSeriesSplit，一律用過去的資料訓練、用之後的資料驗證",
+      "改用 LOOCV，讓每次訓練資料最多"
+     ],
+     "answer": 2,
+     "hint": "隨機打亂後，模型訓練時看到的是哪些日期的資料？真實預測時拿得到「未來」的資料嗎？",
+     "explanation": "答案 C。時間序列隨機打亂，訓練折會混進驗證日期之後的資料，等於用未來預測過去，分數虛高。TimeSeriesSplit（或滾動窗口）保證訓練永遠在驗證之前，才符合上線情境。A：分層是分類問題用的，且沒解決時間順序。B、D：折數或 LOOCV 都還是會打亂時間。",
+     "source": "自編練習題（胡小帥 10/27 分享考法）"
     }
    ]
   },
@@ -6822,6 +6993,56 @@ window.MAP_DATA = {
    "a": "X-08",
    "b": "5.1-07",
    "why": "評分卡也做特徵選擇與 VIF"
+  },
+  {
+   "a": "5.1-09",
+   "b": "5.1-01",
+   "why": "訓練集 fit_transform、測試集只 transform"
+  },
+  {
+   "a": "5.1-09",
+   "b": "5.1-04",
+   "why": "get_dummies／LabelEncoder 的程式寫法"
+  },
+  {
+   "a": "5.1-09",
+   "b": "5.1-05",
+   "why": "fillna 用平均數、中位數、眾數補值"
+  },
+  {
+   "a": "5.1-09",
+   "b": "5.3-09",
+   "why": "測試集也 fit scaler 就是資料洩漏"
+  },
+  {
+   "a": "5.3-09",
+   "b": "5.3-01",
+   "why": "前處理要放進每一折的訓練流程（Pipeline）"
+  },
+  {
+   "a": "5.3-09",
+   "b": "5.4-11",
+   "why": "SMOTE 只能做在訓練折"
+  },
+  {
+   "a": "4.3-19",
+   "b": "4.3-02",
+   "why": "輸出層激活函數與損失函數要配對"
+  },
+  {
+   "a": "4.3-19",
+   "b": "4.3-17",
+   "why": "Keras 的 compile／fit 寫法"
+  },
+  {
+   "a": "4.3-19",
+   "b": "4.3-18",
+   "why": "PyTorch 的 CrossEntropyLoss 吃 logits"
+  },
+  {
+   "a": "4.3-19",
+   "b": "4.3-06",
+   "why": "Conv2D／Pooling 輸出形狀與參數量"
   }
  ],
  "examTotal": 100
