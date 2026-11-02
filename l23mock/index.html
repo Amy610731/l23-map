@@ -500,7 +500,7 @@ function qHTML(q, n){
     } else if (rec().mode === "practice" && a !== q.answer) extra = `<div class="ref">這題已收進錯題本。</div>`;
     rev = `<div class="reveal">${v}${extra}<div>${rich(q.explanation)}</div>
       <ul class="po">${"ABCD".split("").map(k => `<li><b>${k}</b><span>${esc(q.per_option?.[k])}</span></li>`).join("")}</ul>
-      <div class="ref">出處：${esc(q.guide_ref || "—")}・<a href="${STAR}?t=${encodeURIComponent(q.topic_id)}" target="_blank" rel="noopener">到星圖複習「${esc(q.topic)}」</a></div></div>`;
+      <div class="ref">出處：${esc(q.guide_ref || "—")}・<a href="${STAR}go/${encodeURIComponent(q.topic_id)}/" target="_blank" rel="noopener">到星圖複習「${esc(q.topic)}」</a></div></div>`;
   }
   const foot = s.live ? `<div class="qfoot"><button class="btn ghost flagbtn" data-flag="${q.id}" aria-pressed="${s.flag}">${s.flag ? "★ 已標記待檢查" : "☆ 標記待檢查"}</button></div>` : "";
   return `<article class="q" id="q-${q.id}" data-qid="${q.id}"><div class="qhead"><span class="qno">${n}</span><span class="meta">${q.section} ${esc(SEC[q.section] || "")}</span>${tags}</div>
@@ -671,7 +671,7 @@ function renderAna(){
   const weak = Object.entries(byTopic).filter(([,t]) => t.n >= 2 && t.ok < t.n).sort((a,b) => a[1].ok/a[1].n - b[1].ok/b[1].n || b[1].n - a[1].n).slice(0, 12);
   const secHtml = secBars(bySec, secs, true) + `<p class="note">由弱到強排列。紅＝低於 60%，黃＝60～79%，綠＝80% 以上。</p>`;
   const weakHtml = weak.length ? `<div class="tw"><table><thead><tr><th>考點</th><th>小節</th><th style="text-align:right">答對／作答</th><th style="text-align:right">正確率</th></tr></thead><tbody>
-    ${weak.map(([id,t]) => `<tr><td><a href="${STAR}?t=${encodeURIComponent(id)}" target="_blank" rel="noopener">${esc(t.name)}</a></td><td>${t.sec}</td><td class="n">${t.ok}/${t.n}</td><td class="n" style="color:${t.ok/t.n<.6?"var(--bad)":"var(--news)"}">${Math.round(t.ok/t.n*100)}%</td></tr>`).join("")}</tbody></table></div>
+    ${weak.map(([id,t]) => `<tr><td><a href="${STAR}go/${encodeURIComponent(id)}/" target="_blank" rel="noopener">${esc(t.name)}</a></td><td>${t.sec}</td><td class="n">${t.ok}/${t.n}</td><td class="n" style="color:${t.ok/t.n<.6?"var(--bad)":"var(--news)"}">${Math.round(t.ok/t.n*100)}%</td></tr>`).join("")}</tbody></table></div>
     <p class="note">至少作答 2 題才列入。點考點名稱直接開星圖那一顆複習。</p>` : `<div class="empty">目前沒有作答 2 題以上又答錯的考點</div>`;
   el.innerHTML = tiles + `<div class="panel"><h3>分數走勢</h3><div class="trend">${trendSvg()}</div></div>
     <div class="panel"><h3>各小節正確率</h3>${secHtml}</div>
