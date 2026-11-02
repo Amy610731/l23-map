@@ -718,7 +718,7 @@ function openHash(){
   const s = secById[id.split("-")[0]]; if (s) { zoomToSection(s); showSection(s.id); }
 }
 window.addEventListener("hashchange", openHash);
-requestAnimationFrame(openHash);
+setTimeout(openHash, 0);
 })();
 </script>
 </body>
