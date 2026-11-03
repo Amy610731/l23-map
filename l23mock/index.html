@@ -141,6 +141,7 @@ html.embed .wrap { gap: 14px; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn { border: 1.5px solid var(--card-red); background: var(--card-red); color: var(--sheet); border-radius: 4px; padding: 6px 14px; font-weight: 700; }
 .btn.ghost { background: transparent; color: var(--card-red); }
+.note.hist .hbtn { padding: 2px 10px; margin: 2px 4px 2px 0; font-size: .92em; }
 .confirm { font-size: 14px; background: var(--card-red-soft); border-radius: 4px; padding: 8px 10px; display: grid; gap: 6px; }
 .note { font-size: 13px; color: var(--ink-soft); margin: 0; }
 
@@ -382,6 +383,23 @@ const roundDate = d => d <= 13 ? `11/${d}` : "考前加碼";
 function fmt(s){ return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`; }
 function examLeft(ex){ return Math.max(0, (ex.lim || S.limit) * 60 - Math.floor((Date.now() - ex.start) / 1000)); }
 const newExam = () => ({start: Date.now(), lim: S.limit, answers: {}, flags: [], done: false});
+function histAnswers(d, i){
+  const h = S.days[d]?.history?.[i]; if (!h) return null;
+  if (h.answers) return h.answers;
+  if (i !== 0) return null;
+  const qs = PAPER[d], a = {};
+  if (!qs.every(q => S.first[q.id])) return null;
+  qs.forEach(q => { const p = S.first[q.id].p; if (p && p !== "-") a[q.id] = p; });
+  return qs.filter(q => a[q.id] === q.answer).length * 2 === h.score ? a : null;
+}
+// 歷次成績列：有存作答的可以點開檢討（目前正在看的那次不給按）
+function histHTML(d, nowAt){
+  return S.days[d].history.map((h, i) => {
+    const t = `第 ${i + 1} 次 ${h.score} 分（${fmt(h.secs)}）`;
+    if (h.at === nowAt) return `<b>${t}・正在看</b>`;
+    return histAnswers(d, i) ? `<button class="btn ghost hbtn" data-hist="${i}">${t}・看作答</button>` : `<span>${t}（這次的作答沒有保存）</span>`;
+  }).join(" ");
+}
 
 /* ---------- 畫面狀態 ---------- */
 // page：paper＝本回試卷（練習／考試看 dayRec(curDay).mode）、book＝錯題本、ana＝弱點分析
@@ -533,7 +551,7 @@ function resultHTML(){
     <div><span class="big">${ex.score}</span> 分 <span class="note">（答對 ${g.ok}/50 題，每題 2 分；未作答 ${blank} 題；作答時間 ${fmt(ex.secs)}${timedOut ? `；${lim} 分鐘時間到，自動交卷` : ""}）</span></div>
     ${secBars(g.bySec)}
     <div class="note">要回頭看的題號：${wrong.length ? wrong.map(q => `<a href="#q-${q.id}" data-jump="${q.id}">${q.n}</a>`).join("、") : "全對！"}</div>
-    ${r.history.length > 1 ? `<div class="note">本回歷次成績：${r.history.map(h => `${h.score} 分（${fmt(h.secs)}）`).join("、")}</div>` : ""}
+    ${r.history.length > 1 ? `<div class="note hist">本回歷次成績：${histHTML(curDay, ex.end)}</div>` : ""}
     <div class="seg" role="group" aria-label="檢討範圍"><button data-rf="wrong" aria-pressed="${rfilter==="wrong"}">答錯 <span class="n">${wrong.length}</span></button><button data-rf="flag" aria-pressed="${rfilter==="flag"}">有標記 <span class="n">${ex.flags.length}</span></button><button data-rf="all" aria-pressed="${rfilter==="all"}">全部 <span class="n">50</span></button></div>
     <div class="actions"><button class="btn" data-act="retry">重考本回</button><button class="btn ghost" data-mode="notebook">去錯題本重做（${nbActiveCount()} 題）</button></div>
     ${EMBED ? `<p class="note">點一題，陪讀老師就會收到那一題（含你的作答與解析）。</p>` : ""}</section>`;
@@ -553,7 +571,7 @@ function renderMain(){
   else {
     const r = rec(), ex = r.exam;
     if (r.mode === "exam" && ex?.done) html += resultHTML();
-    else if (r.mode === "exam" && !ex && r.history.length) html += `<p class="note">本回之前成績：${r.history.map(h => `${h.score} 分（${fmt(h.secs)}）`).join("、")}。現在作答就是重考。</p>`;
+    else if (r.mode === "exam" && !ex && r.history.length) html += `<p class="note hist">本回之前成績：${histHTML(curDay, null)}<br>點「看作答」可以回去檢討那一次；現在直接作答就是重考。</p>`;
   }
   if (!list.length) {
     if (page !== "book" || nbItems().length) html += `<div class="empty">${page === "book" && !base.length ? (nbShowDone ? "還沒有畢業的題目" : "錯題都畢業了！") : "這個範圍沒有題目，換一個篩選條件或按「全部」。"}</div>`;
@@ -621,7 +639,7 @@ function submitExam(d, timeout){
   ex.done = true; ex.end = Date.now(); ex.secs = Math.min((ex.lim || S.limit)*60, Math.floor((ex.end - ex.start)/1000));
   qs.forEach(q => recordFirst(q, ex.answers[q.id] || "-"));
   ex.score = grade(qs, ex).ok * 2;
-  r.history.push({score: ex.score, secs: ex.secs, at: ex.end});
+  r.history.push({score: ex.score, secs: ex.secs, at: ex.end, lim: ex.lim || S.limit, answers: Object.assign({}, ex.answers), flags: ex.flags.slice()});
   $("#confirm").hidden = true;
   if (d === curDay) { rfilter = "wrong"; focusId = null; delete cur[d + "-exam"]; }
   save(); render();
@@ -852,6 +870,12 @@ document.addEventListener("click", e => {
     const r = rec(), qs = PAPER[curDay];
     const blank = qs.filter(q => !r.exam?.answers[q.id]).length;
     ask(`${blank ? `還有 ${blank} 題沒作答，` : ""}確定交卷？交卷後就不能改答案。`, () => { if (!r.exam) r.exam = newExam(); submitExam(curDay, false); }, "確定交卷", "繼續作答");
+  }
+  else if (D.hist != null) {
+    const r = rec(), i = +D.hist, h = r.history[i], a = histAnswers(curDay, i);
+    if (!h || !a || (r.exam && !r.exam.done)) return;
+    r.exam = {start: h.at - h.secs * 1000, end: h.at, secs: h.secs, lim: h.lim || S.limit, answers: Object.assign({}, a), flags: (h.flags || []).slice(), done: true, score: h.score};
+    rfilter = "wrong"; focusId = null; delete cur[curDay + "-exam"]; save(); render(); window.scrollTo(0, 0);
   }
   else if (D.act === "retry") { rec().exam = null; delete cur[curDay + "-exam"]; focusId = null; $("#confirm").hidden = true; save(); render(); window.scrollTo(0, 0); }
   else if (D.act === "reset") {
