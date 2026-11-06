@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>科目三急救表</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column of three cheat tables, phone first; rows become stacked cards under 680px */
+:root{
+  --paper:#F5F7F8; --card:#FFFFFF; --ink:#1B2430; --muted:#5B6676; --line:#DCE2E7;
+  --red:#C2362B; --red-soft:#FBEAE7; --teal:#0E7A70; --teal-soft:#E2F2EF; --code:#EEF1F4; --gold:#9A6A00;
+  --f-display:"LXGW WenKai TC","Noto Sans TC","PingFang TC","Microsoft JhengHei",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#11161B; --card:#19212A; --ink:#E6EBF0; --muted:#9AA6B3; --line:#2B3540;
+  --red:#FF7D70; --red-soft:#3A201D; --teal:#4FC4B6; --teal-soft:#123230; --code:#0D1216; --gold:#E2B54A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#11161B; --card:#19212A; --ink:#E6EBF0; --muted:#9AA6B3; --line:#2B3540;
+  --red:#FF7D70; --red-soft:#3A201D; --teal:#4FC4B6; --teal-soft:#123230; --code:#0D1216; --gold:#E2B54A; color-scheme:dark}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6}
+.wrap{max-width:980px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:36px}
+h1,h2{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.25}
+h1{font-size:clamp(34px,7vw,52px)}
+h1 .cross{color:var(--red)}
+h2{font-size:clamp(23px,4.4vw,30px);display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+h2 .tag{font-family:var(--f-body);font-size:13px;font-weight:700;letter-spacing:.06em;padding:2px 10px;border-radius:999px}
+.t-red{background:var(--red-soft);color:var(--red)} .t-teal{background:var(--teal-soft);color:var(--teal)}
+.sub{color:var(--muted);margin:6px 0 0}
+.lead{margin:8px 0 0;max-width:68ch}
+header{display:flex;flex-direction:column;gap:14px}
+.count{font-family:var(--f-display);font-size:20px}
+.count b{color:var(--red);font-size:30px;font-variant-numeric:tabular-nums}
+.math{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.math div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.math b{display:block;font-family:var(--f-display);font-size:26px;line-height:1.2;font-variant-numeric:tabular-nums}
+.math span{color:var(--muted);font-size:14px}
+.math .big b{color:var(--red)}
+@media (max-width:680px){.math{grid-template-columns:1fr}}
+.note{font-size:14px;color:var(--muted);border-left:3px solid var(--line);padding-left:12px;max-width:72ch}
+section{display:flex;flex-direction:column;gap:14px}
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button{font:inherit;font-size:15px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 14px;cursor:pointer}
+button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+button:focus-visible,input:focus-visible,.pick:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+.prog{color:var(--muted);font-size:14px;font-variant-numeric:tabular-nums}
+/* main table */
+.rows{border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden}
+.row{display:grid;grid-template-columns:34px minmax(0,1.05fr) minmax(0,1.5fr) minmax(0,1.6fr);gap:12px;padding:12px 14px;border-top:1px solid var(--line);align-items:start}
+.row:first-child{border-top:0}
+.row.head{background:var(--code);font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.04em;padding-block:8px}
+.row.done{background:var(--teal-soft)}
+.row input{width:20px;height:20px;margin:3px 0 0;accent-color:var(--teal)}
+.topic{font-weight:700;display:flex;flex-direction:column;gap:2px}
+.hits{font-family:var(--f-mono);font-size:12px;font-weight:600;color:var(--red)}
+.hits.h2{color:var(--gold)}
+.see{color:var(--muted);font-size:15px}
+.pick{font-size:15px}
+.pick strong{color:var(--teal)}
+.lbl{display:none}
+.tier{padding:8px 14px;font-family:var(--f-display);font-size:18px;border-top:1px solid var(--line);background:var(--paper)}
+.tier:first-child{border-top:0}
+body.quiz .pick{filter:blur(6px);cursor:pointer;user-select:none}
+body.quiz .pick.shown{filter:none}
+@media (max-width:680px){
+  .row{grid-template-columns:28px minmax(0,1fr);gap:4px 10px}
+  .row.head{display:none}
+  .row .see,.row .pick{grid-column:2}
+  .lbl{display:inline;font-size:12px;font-weight:700;letter-spacing:.06em;margin-right:6px}
+  .see .lbl{color:var(--muted)} .pick .lbl{color:var(--teal)}
+}
+/* calc + code tables */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:15px}
+th,td{text-align:left;vertical-align:top;padding:10px 14px;border-top:1px solid var(--line)}
+th{background:var(--code);font-size:13px;color:var(--muted);letter-spacing:.04em;border-top:0}
+td.f{font-family:var(--f-mono);font-size:14px;color:var(--teal);white-space:nowrap}
+td.ex{font-variant-numeric:tabular-nums}
+code{font-family:var(--f-mono);font-size:13.5px;background:var(--code);padding:1px 6px;border-radius:5px;word-break:break-word}
+td.c code{display:inline-block;white-space:pre-wrap}
+.bad{color:var(--red);font-weight:700} .ok{color:var(--teal);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips span{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:14.5px}
+.chips b{color:var(--ink)}
+ol.plan{margin:0;padding-left:1.4em;display:flex;flex-direction:column;gap:8px;max-width:72ch}
+ol.plan b{font-variant-numeric:tabular-nums}
+a{color:var(--teal)}
+footer{font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.pick{transition:filter .2s}}
+.embed [data-t]{cursor:pointer}
+.embed .sel{outline:2px solid var(--red);outline-offset:-2px}
+.embed-tip{display:none}
+.embed .embed-tip{display:block}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1><span class="cross">＋</span>科目三急救表</h1>
+    <p class="sub">iPAS AI 中級．科目三 機器學習技術與應用．11/14（六）考試</p>
+  </div>
+  <div class="count" id="count">考前最後衝刺</div>
+  <div class="math">
+    <div class="big"><b>50 題對 40 題</b><span>＝ 80 分。目標就是這個數字。</span></div>
+    <div><b>29 個考點 → 80 題</b><span>114-2、115-1 兩次公告試題共 100 題，表一這 29 個考點就占了 80 題。</span></div>
+    <div><b>計算只有 9 題</b><span>100 題裡跟計算、公式有關的只有 9 題（114-2 有 8 題、115-1 只有 1 題）。表二 8 條公式全包。</span></div>
+  </div>
+  <p class="note embed-tip">陪讀用法：點表上任何一列（考點、公式、程式碼、加分區），老師就會知道你在看哪一個，說「考我」它就出那一題。</p>
+  <p class="note">程式題不用會寫 Python：每卷最後 11～13 題附程式碼或圖，考的都是「認出這行在做什麼」，表三列了出現過的寫法。統計只來自兩次公告試題，11/14 的題目一定會換；這張表保證的是最常考的方向，不保證分數。</p>
+</header>
+
+<section>
+  <h2>表一 必背 29 考點 <span class="tag t-red">占 80%</span></h2>
+  <p class="lead">情境題長得很囉嗦，但答案幾乎都藏在一兩個關鍵字裡。左邊是題目裡會出現的字，右邊是該選的方向。數字＝兩次考卷共考幾題。</p>
+  <div class="tools">
+    <button id="quizBtn" aria-pressed="false" type="button">遮住答案自我測驗</button>
+    <span class="prog" id="prog">已背 0 / 29</span>
+  </div>
+  <div class="rows" id="rows"></div>
+</section>
+
+<section>
+  <h2>表二 計算題 8 條公式 <span class="tag t-teal">每條都附考過的數字</span></h2>
+  <div class="tbl"><table>
+    <thead><tr><th>題目問</th><th>公式</th><th>考過的例子</th></tr></thead>
+    <tbody id="calc">
+      <tr><td>F1-score</td><td class="f">2PR ÷ (P+R)</td><td class="ex">P=0.8、R=0.6 → 0.96÷1.4 ≈ <b>0.686</b>（比平均 0.7 小，因為是調和平均）</td></tr>
+      <tr><td>Precision／Recall</td><td class="f">P=TP÷(TP+FP)<br>R=TP÷(TP+FN)</td><td>P：我說是的裡面，真的是多少。R：真的是的裡面，我抓到多少。</td></tr>
+      <tr><td>Dense 層參數量</td><td class="f">輸入×輸出＋輸出</td><td class="ex">9 維接 Dense(10)：9×10＋10＝<b>100</b>；再接 Dense(1)：10×1＋1＝<b>11</b></td></tr>
+      <tr><td>Conv 層參數量</td><td class="f">核×核×輸入通道×輸出通道＋輸出通道</td><td class="ex">3×3、3→64 通道：3×3×3×64＋64＝<b>1,792</b>。池化、ReLU、Dropout、Flatten 參數都是 <b>0</b></td></tr>
+      <tr><td>網格搜尋要訓練幾次</td><td class="f">各參數候選數相乘 × K 折</td><td class="ex">3×4×5×3×3＝540 組，×5-fold＝<b>2,700</b> 次（是相乘不是相加）</td></tr>
+      <tr><td>PCA 解釋變異比例</td><td class="f">該特徵值 ÷ 特徵值總和</td><td class="ex">特徵值 6、3、1 → 前兩個 (6+3)÷10＝<b>90%</b></td></tr>
+      <tr><td>條件機率 P(A|B)</td><td class="f">A 且 B 的次數 ÷ B 的次數</td><td>分母永遠是「已知發生」的那個 B。蒙地卡羅擲骰子題就是這樣數。</td></tr>
+      <tr><td>時間複雜度</td><td class="f">兩兩比對＝O(n²)</td><td>每位客戶跟其他所有客戶比 → O(n²)；n 變 10 倍，時間約 100 倍</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">VGG16 那題記一句就好：參數最多的是全連接層（第一個 FC 約占 74%），運算量最多的是卷積層。R²＝0.85 不用算，意思是「85% 的變異被模型解釋」，不是準確率 85%。</p>
+</section>
+
+<section>
+  <h2>表三 程式碼題：認出這行就會答 <span class="tag t-teal">不用會寫</span></h2>
+  <div class="tbl"><table>
+    <thead><tr><th>看到這種寫法</th><th>它在做什麼／該怎麼判</th></tr></thead>
+    <tbody id="code"></tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>加分區 只考過 1 題的 20 個點 <span class="tag t-red">有空再背</span></h2>
+  <div class="chips" id="chips"></div>
+</section>
+
+<section>
+  <h2>剩下 8 天怎麼排</h2>
+  <ol class="plan">
+    <li><b>11/6～11/8</b>　每天背表一約 10 列。用「遮住答案」自測，答得出來才打勾。</li>
+    <li><b>11/9</b>　表二 8 條公式，每條照例子自己算一次。</li>
+    <li><b>11/10</b>　表三從頭看兩遍，重點是認出 <code>requires_grad</code>、<code>CrossEntropyLoss</code>、資料洩漏這幾種寫法。</li>
+    <li><b>11/11～11/13</b>　每天做一回 <a href="https://claude.ai/artifact/Wm65eqC62WhVtY6uWumeMU" target="_blank" rel="noopener">科目三考前 14 回</a>。錯的題只回這張表找是哪一列，不要開新教材。</li>
+    <li><b>11/14 早上</b>　只看表一的打勾列和表二公式。看不懂的圈圈去 <a href="https://amy610731.github.io/l23-map/" target="_blank" rel="noopener">科目三星圖</a> 點開看說明。</li>
+  </ol>
+</section>
+
+<footer>資料來源：科目三星圖整理的 114 年第二次、115 年第一次公告試題（各 50 題）考點對照。2026-11-06 製表。</footer>
+</div>
+
+<script>
+const ROWS = [
+ ["★★★ 考 3～5 題"],
+ ["交叉驗證",5,"樣本很少（150 筆）／類別不平衡／先用全部資料做標準化、PCA、LDA 再交叉驗證","樣本少 → <strong>LOOCV</strong>；不平衡 → <strong>Stratified K-fold</strong>；先處理全部資料再驗證 → <strong>資料洩漏</strong>，要放進 Pipeline"],
+ ["分類評估指標",5,"正樣本只有 3%、1%／怕漏掉病人／怕誤抓好人","不平衡時 <strong>不看 Accuracy</strong>，看 F1、Recall、AUC；怕漏報 → <strong>Recall</strong>；怕誤報 → <strong>Precision</strong>"],
+ ["L1／L2 正則化",5,"想自動刪掉沒用的特徵／特徵高度相關想全部保留","刪特徵、稀疏 → <strong>L1（Lasso）</strong>；共線性、全保留 → <strong>L2（Ridge）</strong>；λ 太大 → 欠擬合"],
+ ["CNN 架構",4,"池化層的作用／CNN 為什麼參數少","池化 ＝ <strong>降維、減少參數與計算</strong>（不是加非線性）；參數少靠 <strong>區域連接＋權重共享</strong>"],
+ ["特徵縮放",4,"KNN、SVM 要不要縮放／有離群值","距離式、神經網路 <strong>要縮放</strong>，樹模型不用；Min-Max → 0～1；Z-score → 平均 0 標準差 1；離群值 → <strong>Robust</strong>；只用訓練集 fit"],
+ ["參數量與運算量",4,"Dense、Conv、VGG16 的參數或運算量","看表二公式；參數最多在 <strong>全連接層</strong>，運算最多在 <strong>卷積層</strong>"],
+ ["激活函數與輸出層",3,"用線性激活效果差／二元、多類輸出層怎麼設","缺的是非線性 → <strong>換 ReLU</strong>（加深沒用）；二元 → 1 個＋<strong>Sigmoid</strong>；多類 → <strong>Softmax</strong>；PyTorch CrossEntropyLoss 前面 <strong>不加 Softmax</strong>"],
+ ["注意力機制",3,"要比對很遠的兩段文字／多頭的好處／續寫文章","遠距離、可平行 → <strong>Self-Attention</strong>；多頭 ＝ <strong>不同子空間看不同關係</strong>；生成續寫 → <strong>GPT</strong>（BERT 擅長理解）"],
+ ["遷移學習",3,"凍結權重／微調學習率","凍結 → <code>requires_grad = False</code>，只訓練新的分類層；微調學習率要 <strong>很小（1e-4）</strong>"],
+ ["PCA 與降維",3,"PCA 前要做什麼／512 維資料想畫圖看","PCA 是無監督、<strong>先標準化</strong>；只為了畫圖 → <strong>t-SNE／UMAP</strong>（不能當模型輸入）"],
+ ["模型可解釋性",3,"醫療、金融、法規／每筆被拒要說明原因","高風險場景要可解釋；解釋 <strong>單一筆</strong> → <strong>SHAP／LIME</strong>（全域特徵重要性不行）"],
+ ["過擬合對策",3,"訓練好、驗證差／下列何者不是防過擬合","L1/L2、Dropout、<strong>Early Stopping（看驗證集）</strong>、降複雜度；「<strong>增加特徵、加大模型</strong>」不是對策"],
+ ["隱私保護技術",3,"多家銀行合作但資料不能出去／雲端對密文運算","資料不出機構、只傳參數 → <strong>聯邦學習</strong>；不解密直接算 → <strong>同態加密</strong>；加噪聲 → 差分隱私"],
+ ["★★ 考 2 題"],
+ ["條件機率／貝氏",2,"P(A|B)／擲骰子模擬","P(A|B) ＝ P(A∩B) ÷ <strong>P(B)</strong>；模擬：A 且 B 次數 ÷ B 次數"],
+ ["特徵工程策略",2,"價格×滿意度這種組合／滑動窗口的目的","兩特徵相乘交叉 → <strong>互動特徵</strong>；滑動窗口 → 做 <strong>滯後特徵（lag）</strong>，不是資料增強或降維"],
+ ["NumPy 向量矩陣",2,"<code>*</code>、<code>np.dot</code>、<code>inv</code>、<code>det</code>、<code>eig</code>","<code>*</code> 逐元素；<code>np.dot</code> <strong>點積</strong>；inv 反矩陣、det 行列式、eig 特徵值；(a,b)×(b,c) 中間要相等"],
+ ["損失函數選擇",2,"房價裡有少數豪宅／預測使用時長 vs 會不會流失","有離群值 → <strong>MAE／Huber</strong>；連續數值 → <strong>MSE</strong>；是或否 → <strong>交叉熵</strong>"],
+ ["動量與 Adam",2,"哪個內建動量／損失震盪又收斂慢","<strong>Adam</strong> ＝ 動量＋自適應學習率；RMSprop、Adagrad 沒有動量"],
+ ["XGBoost",2,"XGBoost 比 GBDT 強在哪","<strong>正則化、缺值自動處理、並行、二階導數</strong>；仍是決策樹＋Boosting"],
+ ["ResNet",2,"層數加深後反而變差／超過 50 層","梯度消失、退化 → <strong>殘差連接（ResNet）</strong>"],
+ ["學習曲線判讀",2,"兩條曲線的差距與走向","訓練好驗證差、差距擴大 → <strong>過擬合</strong>；兩條都差 → <strong>欠擬合</strong>"],
+ ["殘差分析",2,"殘差圖長什麼樣","隨機散布 ＝ 好；彎曲 ＝ <strong>漏了非線性</strong>；喇叭形 ＝ <strong>變異數不一致</strong>"],
+ ["迴歸評估指標",2,"R² ＝ 0.85 的意思／看程式算的是哪個","<strong>85% 的變異被解釋</strong>（不是準確率）；平方取平均 MSE，再開根號 RMSE"],
+ ["學習率",2,"學習率太大最直接的後果","太大 → <strong>震盪或發散</strong>；太小 → 收斂慢"],
+ ["資料增強",2,"翻轉手寫數字、OCR 文字","會改變標籤的變換 <strong>不能用</strong>（6 翻成 9、b 變 d）"],
+ ["偏見類型",2,"樣本只有活躍顧客／人工標註帶主觀","只涵蓋某類人 → <strong>取樣偏差</strong>；標註主觀 → <strong>標籤偏差</strong>"],
+ ["時間序列驗證",2,"有時間順序的資料怎麼驗證","<strong>不能隨機 K-fold</strong>；訓練在前、驗證在後 → <strong>TimeSeriesSplit</strong>（滾動／擴張視窗）"],
+ ["網格與隨機搜尋",2,"Random Search 的優點／網格要訓練幾次","高維空間 <strong>隨機搜尋較有效率</strong>；網格次數 ＝ 相乘 × K 折"],
+ ["蒙地卡羅方法",2,"預測波動範圍、風險值 VaR","大量 <strong>隨機模擬</strong> 情境 → 統計分布 → <strong>蒙地卡羅</strong>"]
+];
+const CODE = [
+ ["<code>scaler.fit_transform(X)</code> 寫在切資料之前；或先對全部資料做 LDA／PCA 再 <code>cross_val_score</code>","<span class='bad'>資料洩漏</span>，分數虛高。正確：只用訓練集 fit，測試集只 <code>transform</code>，或包進 Pipeline"],
+ ["<code>for p in model.features.parameters(): p.requires_grad = False</code>","<span class='ok'>凍結預訓練層</span>（遷移學習），之後換掉最後一層再訓練。直接對 model 設屬性凍結不了"],
+ ["<code>optim.Adam(model.parameters(), lr=1e-4)</code> 用在微調","微調學習率要小，避免破壞預訓練學到的特徵"],
+ ["<code>nn.CrossEntropyLoss()</code>，最後一層 <code>nn.Linear(…, 3)</code>","輸出維度 ＝ 類別數，<span class='ok'>不用再加 Softmax</span>（Loss 內部已含）"],
+ ["<code>Dense(10, activation='softmax')</code> ＋ <code>categorical_crossentropy</code>","多類別分類；二元分類是 <code>Dense(1, activation='sigmoid')</code> ＋ <code>binary_crossentropy</code>"],
+ ["<code>loss.backward()</code> → <code>clip_grad_norm_(…)</code> → <code>optimizer.step()</code>","<span class='ok'>梯度裁剪</span>，治梯度爆炸、Loss 變 NaN。位置在 backward 之後、step 之前"],
+ ["<code>np.mean((y - y_pred)**2)</code>／外面再包 <code>np.sqrt</code>／<code>np.abs</code>","MSE／RMSE／MAE"],
+ ["<code>loss + lam * np.sum(np.abs(w))</code>／<code>lam * np.sum(w**2)</code>","L1 正則化／L2 正則化"],
+ ["<code>mask = (np.random.rand(…) &lt; p)</code>，<code>x * mask / p</code>","Dropout（只在訓練時用）"],
+ ["<code>v1 * v2</code>／<code>np.dot(v1, v2)</code>","逐元素相乘 [4,10,18]／點積 32"],
+ ["<code>PCA(n_components=k)</code> ＋ <code>inverse_transform</code>","PCA 降噪；只寫 <code>PCA()</code> 不設 k ＝ 保留全部，<span class='bad'>沒降維也沒降噪</span>"],
+ ["<code>cross_val_score(clf, X, y, cv=5)</code>","分類器給整數 cv，預設就是 <span class='ok'>分層 K-fold</span>"],
+ ["<code>plt.plot(x, y, 'b-')</code>／<code>'r--'</code>","藍色實線／紅色虛線"],
+ ["<code>model.summary()</code> 裡 Param # 是 0 的層","MaxPool、Flatten、ReLU、Dropout，沒有可學參數"],
+ ["<code>RandomHorizontalFlip()</code> 用在 OCR、手寫數字","<span class='bad'>不該用</span>：翻轉會改變字的意思，等於餵錯標籤"],
+ ["<code>TimeSeriesSplit(n_splits=5)</code>","時間序列驗證：訓練永遠在前、驗證在後，預設擴張視窗"]
+];
+const CHIPS = [
+ ["梯度裁剪","梯度爆炸、Loss 變 NaN"],["小批次梯度下降","穩定與效率的折衷"],["非凸函數","會卡在局部最優、鞍點"],
+ ["強化學習","獎勵要綁真正任務成果，不然會刷分"],["決策樹","分裂看資訊增益、基尼不純度"],["樸素貝氏","假設特徵條件獨立，受先驗影響"],
+ ["K-means","要先給 K、怕離群值、只會球形群"],["DBSCAN","Eps＋MinPts，分核心點、邊界點、噪聲點"],["異常偵測","只有正常樣本 → Isolation Forest、One-Class SVM"],
+ ["LSTM","有時間順序的預測，三個門解梯度消失"],["類別編碼","有序 Label、無序 One-hot、3,000 類高基數用 Target Encoding"],["偏差與變異","訓練 0.97、驗證 0.72 → 高變異（過擬合）"],
+ ["模型量化","32-bit 轉 8-bit，縮小加速"],["公平性指標","統計均等看各群通過率；Equal Opportunity 看 TPR"],["去偏方法","前處理、訓練中、後處理（調門檻）"],
+ ["AutoML","時間短、缺人力、快速做基準"],["LoRA","記憶體不夠 → 降 rank、套到更多層"],["RAG 混合搜尋","專有名詞查不到 → 向量＋BM25，用 RRF 融合"],
+ ["信用評分卡","邏輯迴歸、WOE／IV、PSI 監控"],["時間複雜度","兩兩比對 O(n²)"]
+];
+/* 嵌入「陪讀手機版」（網址帶 ?embed=1 且在 iframe 裡）時：點哪一列就用 postMessage 把那一列交給即時語音老師。
+   單獨開、或在 claude.ai artifact 裡開時完全不作用。內容是公開的考點整理，targetOrigin 用 "*"，由陪讀端檢查來源。 */
+const EMBED = window.parent !== window && /[?&]embed=1/.test(location.search);
+if (EMBED) document.documentElement.classList.add("embed");
+const TOPICS = {};
+const plain = s => String(s).replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+function addTopic(id, title, sectionName, hits, summary, points) {
+  TOPICS[id] = { id: "rescue-" + id, title: plain(title).slice(0, 60), sectionName, chapter: "科目三急救表",
+    examHits: hits, examRefs: hits ? ["114-2＋115-1 合計"] : [], summary: plain(summary), keyPoints: points.map(plain), trap: "", related: [], quiz: [] };
+}
+function emit(msg) { if (!EMBED) return; try { window.parent.postMessage(Object.assign({ src: "l23-map" }, msg), "*"); } catch (e) {} }
+const KEY = "l23-rescue-v1";
+let done = {};
+try { done = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { done = {}; }
+const rowsEl = document.getElementById("rows");
+let html = '<div class="row head"><span></span><span>考點</span><span>題目裡看到</span><span>就選這個</span></div>';
+let idx = 0, tier = "";
+for (const r of ROWS) {
+  if (r.length === 1) { tier = r[0]; html += '<div class="tier">' + r[0] + '</div>'; continue; }
+  const id = "r" + idx++;
+  addTopic(id, r[0], "表一 必背考點（" + tier + "）", r[1], "題目裡看到：" + r[2], ["就選：" + r[3]]);
+  html += '<div class="row' + (done[id] ? ' done' : '') + '" data-id="' + id + '" data-t="' + id + '">' +
+    '<input type="checkbox" id="' + id + '" aria-label="' + r[0] + ' 背好了"' + (done[id] ? ' checked' : '') + '>' +
+    '<label class="topic" for="' + id + '">' + r[0] + '<span class="hits' + (r[1] < 3 ? ' h2' : '') + '">考過 ' + r[1] + ' 題</span></label>' +
+    '<div class="see"><span class="lbl">看到</span>' + r[2] + '</div>' +
+    '<div class="pick" tabindex="0"><span class="lbl">就選</span>' + r[3] + '</div></div>';
+}
+rowsEl.innerHTML = html;
+const total = idx;
+function prog() {
+  const n = rowsEl.querySelectorAll("input:checked").length;
+  document.getElementById("prog").textContent = "已背 " + n + " / " + total;
+}
+prog();
+rowsEl.addEventListener("change", e => {
+  const cb = e.target; if (cb.type !== "checkbox") return;
+  cb.closest(".row").classList.toggle("done", cb.checked);
+  done[cb.id] = cb.checked;
+  try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (err) {}
+  prog();
+});
+function reveal(el) { if (document.body.classList.contains("quiz")) el.classList.toggle("shown"); }
+rowsEl.addEventListener("click", e => { const p = e.target.closest(".pick"); if (p) reveal(p); });
+rowsEl.addEventListener("keydown", e => { const p = e.target.closest(".pick"); if (p && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); reveal(p); } });
+const qb = document.getElementById("quizBtn");
+qb.addEventListener("click", () => {
+  const on = document.body.classList.toggle("quiz");
+  qb.setAttribute("aria-pressed", on ? "true" : "false");
+  qb.textContent = on ? "顯示全部答案" : "遮住答案自我測驗";
+  rowsEl.querySelectorAll(".pick.shown").forEach(p => p.classList.remove("shown"));
+});
+document.getElementById("code").innerHTML = CODE.map((c, i) => {
+  addTopic("c" + i, "程式碼：" + plain(c[0]).slice(0, 40), "表三 程式碼題", 0, "程式碼：" + c[0], ["它在做什麼：" + c[1]]);
+  return '<tr data-t="c' + i + '"><td class="c">' + c[0] + '</td><td>' + c[1] + '</td></tr>';
+}).join("");
+document.getElementById("chips").innerHTML = CHIPS.map((c, i) => {
+  addTopic("x" + i, c[0], "加分區（只考過 1 題）", 1, c[0] + "：" + c[1], []);
+  return '<span data-t="x' + i + '"><b>' + c[0] + '</b>：' + c[1] + '</span>';
+}).join("");
+document.querySelectorAll("#calc tr").forEach((tr, i) => {
+  const td = tr.children;
+  addTopic("k" + i, "計算：" + td[0].textContent, "表二 計算題公式", 0, "公式：" + td[1].innerHTML.replace(/<br>/g, "；"), ["考過的例子：" + td[2].innerHTML]);
+  tr.dataset.t = "k" + i;
+});
+document.addEventListener("click", e => {
+  if (!EMBED) return;
+  const el = e.target.closest("[data-t]"); if (!el || !TOPICS[el.dataset.t]) return;
+  document.querySelectorAll(".sel").forEach(x => x.classList.remove("sel"));
+  el.classList.add("sel");
+  emit({ type: "topic", topic: TOPICS[el.dataset.t] });
+});
+(function () {
+  const exam = Date.UTC(2026, 10, 13, 16, 0, 0); // 2026-11-14 00:00 台灣時間
+  const days = Math.ceil((exam - Date.now()) / 86400000);
+  const el = document.getElementById("count");
+  if (days > 0) el.innerHTML = "距離考試還有 <b>" + days + "</b> 天";
+  else if (days === 0) el.innerHTML = "<b>今天考試</b>，只看打勾的列就好";
+  else el.textContent = "考試已結束，辛苦了";
+})();
+</script>
+
+</body>
+</html>
