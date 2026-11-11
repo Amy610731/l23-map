@@ -528,8 +528,8 @@ function applyTheme() {
 }
 applyTheme();
 // 畫面偏好（一題一題／全部列出、篩選）另存一個 key，不動作答紀錄 l23mock-v1
-const UI = Object.assign({view: "one", filter: "全部", sec: "all"}, store.get("l23mock-ui", {}));
-const saveUI = () => store.set("l23mock-ui", {view: UI.view, filter: UI.filter, sec: UI.sec});
+const UI = Object.assign({view: "one", filter: "全部", sec: "all", ana: "all"}, store.get("l23mock-ui", {}));
+const saveUI = () => store.set("l23mock-ui", {view: UI.view, filter: UI.filter, sec: UI.sec, ana: UI.ana});
 
 /* ---------- 題目：每回固定打散順序（種子＝回數），id＝d01-07（原題號），n＝本回卷面題號 ---------- */
 function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -875,10 +875,15 @@ function autoSubmitStale(){
 
 /* ---------- 弱點分析 ---------- */
 let aiText = "", aiBusy = false, sampleFn = undefined;
+// 弱點分析的範圍：all 全部、mock 自編 14 回、15／16 單一份公告試題
+const ANA_SCOPES = () => [["all", "全部"], ["mock", "自編 14 回"], ...Object.entries(PAST).filter(([d]) => PAPER[d]).map(([d, nm]) => [d, nm.replace(" 公告試題", " 考古")])];
+if (!["all", "mock", ...Object.keys(PAST)].includes(UI.ana)) UI.ana = "all";
+const inScope = q => UI.ana === "all" || (UI.ana === "mock" ? !PAST[q.day] : q.day === +UI.ana);
+const scopeName = () => (ANA_SCOPES().find(([k]) => k === UI.ana) || [, "全部"])[1];
 function stats(){
   const bySec = {}, byTopic = {};
   for (const [id, f] of Object.entries(S.first)) {
-    const q = QBY[id]; if (!q) continue;
+    const q = QBY[id]; if (!q || !inScope(q)) continue;
     const s = bySec[q.section] ||= [0,0]; s[1]++; if (f.ok) s[0]++;
     const t = byTopic[q.topic_id] ||= {name: q.topic, sec: q.section, ok: 0, n: 0}; t.n++; if (f.ok) t.ok++;
   }
@@ -899,26 +904,36 @@ function trendSvg(){
   g += `<text x="${W-R}" y="${y(70)-5}" text-anchor="end" font-size="11" style="fill:var(--news)">目標 70</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="各回第一次考試分數">${g}</svg><p class="note">橫軸＝第幾回，只畫每回第一次考試的分數。${Object.keys(PAST).filter(d => S.days[d]?.history?.length).map(d => `${PAST[d]}第一次 ${S.days[d].history[0].score} 分`).join("；")}</p>`;
 }
+function pastPanel(d){
+  const h = S.days[d]?.history || [];
+  const sc = h.length ? `<p>考試模式成績：${h.map((x, i) => `第 ${i + 1} 次 <b>${x.score}</b> 分（${fmt(x.secs)}）`).join("；")}</p>` : `<p class="note">還沒用考試模式考過這份。</p>`;
+  const wr = PAPER[d].filter(q => S.first[q.id] && !S.first[q.id].ok).sort((a, b) => a.no - b.no);
+  const list = wr.length ? `<div class="tw"><table><thead><tr><th style="white-space:nowrap">題號</th><th>考點</th><th style="white-space:nowrap">小節</th><th style="white-space:nowrap">你選→正解</th></tr></thead><tbody>${wr.map(q => `<tr><td class="n">${q.no}</td><td><a href="${STAR}go/${encodeURIComponent(q.topic_id)}/" target="_blank" rel="noopener">${esc(q.topic)}</a></td><td>${q.section}</td><td>${esc(S.first[q.id].p || "-")} → ${q.answer}</td></tr>`).join("")}</tbody></table></div><p class="note">第一次作答就答錯的題，照原卷題號排。點考點名稱開星圖複習。</p>` : `<div class="empty">第一次作答還沒有答錯的題</div>`;
+  return `<div class="panel"><h3>${esc(PAST[d])}</h3>${sc}<h3 style="margin-top:12px">第一次就答錯的題（${wr.length} 題）</h3>${list}</div>`;
+}
 function renderAna(){
   const el = $("#ana"), {bySec, byTopic} = stats();
-  const fs = Object.entries(S.first).filter(([id]) => QBY[id]), n = fs.length, ok = fs.filter(([,f]) => f.ok).length;
-  const active = nbActiveCount();
-  const tiles = `<div class="tiles"><div class="tile"><div class="k">已作答題數</div><div class="v">${n}<small> / ${Object.values(PAPER).reduce((a, x) => a + x.length, 0)}</small></div></div>
+  const fs = Object.entries(S.first).filter(([id]) => QBY[id] && inScope(QBY[id])), n = fs.length, ok = fs.filter(([,f]) => f.ok).length;
+  const active = nbItems().filter(([id, v]) => !v.done && inScope(QBY[id])).length;
+  const total = Object.values(PAPER).flat().filter(inScope).length;
+  const scopeBar = `<div class="seg anascope" role="group" aria-label="分析範圍" style="margin-bottom:12px;flex-wrap:wrap">${ANA_SCOPES().map(([k, nm]) => `<button data-anas="${k}" aria-pressed="${UI.ana === k}">${esc(nm)}</button>`).join("")}</div>`;
+  const tiles = scopeBar + `<div class="tiles"><div class="tile"><div class="k">已作答題數</div><div class="v">${n}<small> / ${total}</small></div></div>
     <div class="tile"><div class="k">第一次作答正確率</div><div class="v">${n ? Math.round(ok/n*100) : "–"}<small>%</small></div></div>
     <div class="tile"><div class="k">錯題本待複習</div><div class="v">${active}<small> 題</small></div></div>
     <div class="tile"><div class="k">距離考試</div><div class="v">${daysLeft()}<small> 天</small></div></div></div>`;
-  if (!n) { el.innerHTML = tiles + `<div class="empty">做完第一回就會出現各小節正確率、最弱考點與分數走勢。</div>`; return; }
+  if (!n) { el.innerHTML = tiles + `<div class="empty">${PAST[UI.ana] ? `做完「${esc(PAST[UI.ana])}」就會出現這份的各小節正確率、最弱考點與答錯清單。` : "做完第一回就會出現各小節正確率、最弱考點與分數走勢。"}</div>`; return; }
   const secs = SEC_ORDER.filter(s => bySec[s]).sort((a,b) => bySec[a][0]/bySec[a][1] - bySec[b][0]/bySec[b][1]);
   const weak = Object.entries(byTopic).filter(([,t]) => t.n >= 2 && t.ok < t.n).sort((a,b) => a[1].ok/a[1].n - b[1].ok/b[1].n || b[1].n - a[1].n).slice(0, 12);
   const secHtml = secBars(bySec, secs, true) + `<p class="note">由弱到強排列。紅＝低於 60%，黃＝60～79%，綠＝80% 以上。</p>`;
   const weakHtml = weak.length ? `<div class="tw"><table><thead><tr><th>考點</th><th>小節</th><th style="text-align:right">答對／作答</th><th style="text-align:right">正確率</th></tr></thead><tbody>
     ${weak.map(([id,t]) => `<tr><td><a href="${STAR}go/${encodeURIComponent(id)}/" target="_blank" rel="noopener">${esc(t.name)}</a></td><td>${t.sec}</td><td class="n">${t.ok}/${t.n}</td><td class="n" style="color:${t.ok/t.n<.6?"var(--bad)":"var(--news)"}">${Math.round(t.ok/t.n*100)}%</td></tr>`).join("")}</tbody></table></div>
     <p class="note">至少作答 2 題才列入。點考點名稱直接開星圖那一顆複習。</p>` : `<div class="empty">目前沒有作答 2 題以上又答錯的考點</div>`;
-  el.innerHTML = tiles + `<div class="panel"><h3>分數走勢</h3><div class="trend">${trendSvg()}</div></div>
+  const head = PAST[UI.ana] ? pastPanel(+UI.ana) : `<div class="panel"><h3>分數走勢</h3><div class="trend">${trendSvg()}</div></div>`;
+  el.innerHTML = tiles + `${head}
     <div class="panel"><h3>各小節正確率</h3>${secHtml}</div>
     <div class="panel"><h3>最該補強的考點</h3>${weakHtml}</div>
     <div class="panel" id="aipanel" ${sampleFn === null ? "hidden" : ""}><h3>請 Claude 看錯題寫診斷</h3>
-      <p class="note">把你目前的各小節正確率和錯題（題幹摘要、你選的、正解）交給 Claude，請它指出觀念漏洞和考前三天的複習順序。</p>
+      <p class="note">把你目前的各小節正確率和錯題（題幹摘要、你選的、正解）交給 Claude，請它指出觀念漏洞和考前三天的複習順序。範圍跟上面選的一樣（現在：${esc(scopeName())}）。</p>
       <div class="actions"><button class="btn" id="aigo" ${aiBusy||!active&&!weak.length?"disabled":""}>${aiBusy ? "分析中…" : "產生診斷"}</button></div>
       <div class="ai" id="aiout">${esc(aiText)}</div></div>`;
   $("#aigo")?.addEventListener("click", runAI);
@@ -928,11 +943,11 @@ async function runAI(){
   aiBusy = true; aiText = ""; render();
   const {bySec} = stats();
   const secLine = SEC_ORDER.filter(s => bySec[s]).map(s => `${s} ${SEC[s]}：${bySec[s][0]}/${bySec[s][1]}`).join("\n");
-  const wrongs = Object.entries(S.nb).filter(([id,v]) => QBY[id] && !v.done).slice(0, 60).map(([id,v]) => {
+  const wrongs = Object.entries(S.nb).filter(([id,v]) => QBY[id] && !v.done && inScope(QBY[id])).slice(0, 60).map(([id,v]) => {
     const q = QBY[id], p = S.first[id]?.p;
-    return `【${q.section} ${q.topic}】${plain(q.stem, q).replace(/```[\s\S]*?```/g,"（程式碼）").slice(0,90)}…｜考生選 ${p}：${(q.options[p]||"未作答").slice(0,40)}｜正解 ${q.answer}：${q.options[q.answer].slice(0,40)}｜錯 ${v.wrong} 次`;
+    return `${PAST[q.day] ? `［${PAST[q.day]}第 ${q.no} 題］` : ""}【${q.section} ${q.topic}】${plain(q.stem, q).replace(/```[\s\S]*?```/g,"（程式碼）").slice(0,90)}…｜考生選 ${p}：${(q.options[p]||"未作答").slice(0,40)}｜正解 ${q.answer}：${q.options[q.answer].slice(0,40)}｜錯 ${v.wrong} 次`;
   }).join("\n");
-  const prompt = `你是 iPAS AI 應用規劃師（中級）科目三「機器學習技術與應用」的考前輔導老師。考生 11/14 應考，今天距考試 ${daysLeft()} 天。以下是考生模擬考的各小節第一次作答正確率與目前還沒畢業的錯題。
+  const prompt = `你是 iPAS AI 應用規劃師（中級）科目三「機器學習技術與應用」的考前輔導老師。考生 11/14 應考，今天距考試 ${daysLeft()} 天。以下是考生${PAST[UI.ana] ? `重考官方「${PAST[UI.ana]}」（真正考過的考古題）` : UI.ana === "mock" ? "自編模擬考 14 回" : "模擬考（自編 14 回＋兩份官方公告試題）"}的各小節第一次作答正確率與目前還沒畢業的錯題。
 請用台灣繁體中文、純文字（不要 markdown 符號），寫一份 400～600 字的弱點診斷：
 1. 指出 3～5 個「觀念漏洞」（不是只列考點名，要說她可能誤以為什麼、正確觀念一句話）
 2. 哪些錯題其實是同一個漏洞造成的
@@ -1065,6 +1080,7 @@ document.addEventListener("click", e => {
   }
   const D = t.dataset;
   if (D.act === "rounds") { roundsOpen = !roundsOpen; renderTop(); }
+  else if (D.anas) { if (UI.ana !== D.anas) { UI.ana = D.anas; aiText = ""; saveUI(); render(); } }
   else if (D.round) { curDay = +D.round; page = "paper"; roundsOpen = false; rfilter = "wrong"; focusId = null; $("#confirm").hidden = true; render(); }
   else if (D.mode) {
     $("#confirm").hidden = true; focusId = null;
