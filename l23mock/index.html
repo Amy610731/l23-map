@@ -890,19 +890,34 @@ function stats(){
   return {bySec, byTopic};
 }
 function trendSvg(){
-  const pts = [];
-  for (let d = 1; d <= DAYS; d++) { const h = S.days[d]?.history; if (h?.length) pts.push({d, s: h[0].score}); }
-  if (!pts.length) return `<div class="empty">還沒有考試模式的成績</div>`;
-  const W = 640, H = 220, L = 34, R = 10, T = 12, B = 30, x = d => L + (d - 1) * (W - L - R) / (DAYS - 1), y = s => T + (100 - s) * (H - T - B) / 100;
+  // 範圍「全部」時，自編 14 回後面接兩份官方考古卷（虛線隔開、金色菱形、不跟自編回連線）
+  const PK = UI.ana === "all" ? Object.keys(PAST).map(Number).filter(d => PAPER[d]) : [];
+  const pos = d => PAST[d] ? DAYS + 0.6 + PK.indexOf(d) : d - 1;
+  const first = d => { const h = S.days[d]?.history; return h?.length ? {d, s: h[0].score} : null; };
+  const pts = [], pp = [];
+  for (let d = 1; d <= DAYS; d++) { const p = first(d); if (p) pts.push(p); }
+  for (const d of PK) { const p = first(d); if (p) pp.push(p); }
+  if (!pts.length && !pp.length) return `<div class="empty">還沒有考試模式的成績</div>`;
+  const span = PK.length ? pos(PK.at(-1)) : DAYS - 1;
+  const W = 640, H = 220, L = 34, R = PK.length ? 20 : 10, T = 12, B = 30, P0 = 14, x = d => L + P0 + pos(d) * (W - L - R - P0) / span, y = s => T + (100 - s) * (H - T - B) / 100;
   let g = "";
   for (const s of [0,25,50,70,100]) g += `<line x1="${L}" x2="${W-R}" y1="${y(s)}" y2="${y(s)}" style="stroke:var(${s===70?"--news":"--line"})" ${s===70?'stroke-dasharray="4 4"':""}/><text x="${L-6}" y="${y(s)+4}" text-anchor="end" font-size="11" style="fill:var(--ink-soft)">${s}</text>`;
   for (let d = 1; d <= DAYS; d++) g += `<text x="${x(d)}" y="${H-10}" text-anchor="middle" font-size="11" style="fill:var(--ink-soft)">${d}</text>`;
-  const path = pts.map((p,i) => `${i?"L":"M"}${x(p.d)},${y(p.s)}`).join("");
-  const area = `${path}L${x(pts.at(-1).d)},${y(0)}L${x(pts[0].d)},${y(0)}Z`;
-  g += `<path d="${area}" style="fill:var(--card-red-soft)" stroke="none"/><path d="${path}" fill="none" style="stroke:var(--card-red)" stroke-width="2.5"/>`;
-  pts.forEach((p,i) => g += `<circle cx="${x(p.d)}" cy="${y(p.s)}" r="${i===pts.length-1?5:3.5}" style="fill:var(--card-red)"/><text x="${x(p.d)}" y="${y(p.s)-9}" text-anchor="middle" font-size="11" font-weight="700" style="fill:var(--ink)">${p.s}</text>`);
-  g += `<text x="${W-R}" y="${y(70)-5}" text-anchor="end" font-size="11" style="fill:var(--news)">目標 70</text>`;
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="各回第一次考試分數">${g}</svg><p class="note">橫軸＝第幾回，只畫每回第一次考試的分數。${Object.keys(PAST).filter(d => S.days[d]?.history?.length).map(d => `${PAST[d]}第一次 ${S.days[d].history[0].score} 分`).join("；")}</p>`;
+  if (PK.length) {
+    const sx = (x(DAYS) + x(PK[0])) / 2;
+    g += `<line x1="${sx}" x2="${sx}" y1="${T}" y2="${y(0)}" style="stroke:var(--ink-soft)" stroke-dasharray="3 4" opacity=".6"/>`;
+    for (const d of PK) g += `<text x="${x(d)}" y="${H-10}" text-anchor="middle" font-size="11" font-weight="700" style="fill:var(--news)">${PAST[d].replace(" 公告試題", "")}</text>`;
+  }
+  if (pts.length) {
+    const path = pts.map((p,i) => `${i?"L":"M"}${x(p.d)},${y(p.s)}`).join("");
+    const area = `${path}L${x(pts.at(-1).d)},${y(0)}L${x(pts[0].d)},${y(0)}Z`;
+    g += `<path d="${area}" style="fill:var(--card-red-soft)" stroke="none"/><path d="${path}" fill="none" style="stroke:var(--card-red)" stroke-width="2.5"/>`;
+    pts.forEach((p,i) => g += `<circle cx="${x(p.d)}" cy="${y(p.s)}" r="${i===pts.length-1?5:3.5}" style="fill:var(--card-red)"/><text x="${x(p.d)}" y="${y(p.s)-9}" text-anchor="middle" font-size="11" font-weight="700" style="fill:var(--ink)">${p.s}</text>`);
+  }
+  pp.forEach(p => g += `<rect x="${x(p.d)-4.5}" y="${y(p.s)-4.5}" width="9" height="9" transform="rotate(45 ${x(p.d)} ${y(p.s)})" style="fill:var(--news)"/><text x="${x(p.d)}" y="${y(p.s)-10}" text-anchor="middle" font-size="11" font-weight="700" style="fill:var(--ink)">${p.s}</text>`);
+  g += `<text x="${PK.length ? (x(DAYS) + x(PK[0])) / 2 - 4 : W-R}" y="${y(70)-5}" text-anchor="end" font-size="11" style="fill:var(--news)">目標 70</text>`;
+  const note = PK.length ? `橫軸＝第幾回，只畫每回第一次考試的分數。虛線右邊的金色菱形是官方考古卷（${PK.map(d => PAST[d].replace(" 公告試題", "")).join("、")}），${pp.length ? "跟自編回分開畫、不連線" : "還沒用考試模式考過"}。` : "橫軸＝第幾回，只畫每回第一次考試的分數。";
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="各回第一次考試分數">${g}</svg><p class="note">${note}</p>`;
 }
 function pastPanel(d){
   const h = S.days[d]?.history || [];
