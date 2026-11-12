@@ -80,6 +80,7 @@ h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(28px, 5vw
 .sr details summary { cursor: pointer; font-weight: 700; color: var(--card-red); }
 .sr details summary.ok { color: var(--ok); }
 .sr details > div { display: grid; gap: 8px; margin-top: 8px; }
+.ai .airef { border: 0; background: none; padding: 0; font: inherit; color: var(--card-red); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .chip { border: 1px solid var(--line); background: var(--sheet); border-radius: 999px; padding: 2px 12px; font-size: 14px; }
 .chip[aria-pressed="true"] { border-color: var(--card-red); background: var(--card-red-soft); color: var(--card-red); font-weight: 700; }
 .chip .n { font-family: var(--f-mono); font-size: 12px; margin-left: 4px; opacity: .8; }
@@ -971,8 +972,19 @@ function renderAna(){
     <div class="panel" id="aipanel" ${sampleFn === null ? "hidden" : ""}><h3>請 Claude 看錯題寫診斷</h3>
       <p class="note">把你目前的各小節正確率和錯題（題幹摘要、你選的、正解）交給 Claude，請它指出觀念漏洞和考前三天的複習順序。範圍跟上面選的一樣（現在：${esc(scopeName())}）。</p>
       <div class="actions"><button class="btn" id="aigo" ${aiBusy||!active&&!weak.length?"disabled":""}>${aiBusy ? "分析中…" : "產生診斷"}</button></div>
-      <div class="ai" id="aiout">${esc(aiText)}</div></div>`;
+      <div class="ai" id="aiout">${aiHTML(aiText)}</div></div>`;
   $("#aigo")?.addEventListener("click", runAI);
+}
+// 診斷文字裡的「114-2 公告試題第 8 題」「第 3 回第 12 題」變成連結（點了跳到那一題）；
+// 只寫「第 8 題」的，若弱點分析範圍是單一卷就連到那一卷，範圍是全部就不連（猜不出是哪一卷）
+const PASTNO = Object.fromEntries(Object.entries(PAST).map(([d, nm]) => [nm.split(" ")[0], +d]));
+function aiHTML(t){
+  const one = PAPER[+UI.ana] ? +UI.ana : null;
+  return esc(t).replace(/(?:(\d{3}-\d)\s*公告試題\s*|第\s*(\d+)\s*回\s*)?第\s*(\d+)\s*題/g, (m, past, rd, n) => {
+    const d = past ? PASTNO[past] : rd ? +rd : one;
+    const q = d && PAPER[d]?.find(x => x.n === +n);
+    return q ? `<button class="airef" data-sgo="${q.id}" title="跳到${esc(RN(d))}第 ${n} 題">${m}</button>` : m;
+  });
 }
 async function runAI(){
   if (aiBusy || !sampleFn) return;
@@ -981,7 +993,7 @@ async function runAI(){
   const secLine = SEC_ORDER.filter(s => bySec[s]).map(s => `${s} ${SEC[s]}：${bySec[s][0]}/${bySec[s][1]}`).join("\n");
   const wrongs = Object.entries(S.nb).filter(([id,v]) => QBY[id] && !v.done && inScope(QBY[id])).slice(0, 60).map(([id,v]) => {
     const q = QBY[id], p = S.first[id]?.p;
-    return `${PAST[q.day] ? `［${PAST[q.day]}第 ${q.no} 題］` : ""}【${q.section} ${q.topic}】${plain(q.stem, q).replace(/```[\s\S]*?```/g,"（程式碼）").slice(0,90)}…｜考生選 ${p}：${(q.options[p]||"未作答").slice(0,40)}｜正解 ${q.answer}：${q.options[q.answer].slice(0,40)}｜錯 ${v.wrong} 次`;
+    return `［${RN(q.day)}第 ${q.n} 題］【${q.section} ${q.topic}】${plain(q.stem, q).replace(/```[\s\S]*?```/g,"（程式碼）").slice(0,90)}…｜考生選 ${p}：${(q.options[p]||"未作答").slice(0,40)}｜正解 ${q.answer}：${q.options[q.answer].slice(0,40)}｜錯 ${v.wrong} 次`;
   }).join("\n");
   const prompt = `你是 iPAS AI 應用規劃師（中級）科目三「機器學習技術與應用」的考前輔導老師。考生 11/14 應考，今天距考試 ${daysLeft()} 天。以下是考生${PAST[UI.ana] ? `重考官方「${PAST[UI.ana]}」（真正考過的考古題）` : UI.ana === "mock" ? "自編模擬考 14 回" : "模擬考（自編 14 回＋兩份官方公告試題）"}的各小節第一次作答正確率與目前還沒畢業的錯題。
 請用台灣繁體中文、純文字（不要 markdown 符號），寫一份 400～600 字的弱點診斷：
@@ -989,6 +1001,7 @@ async function runAI(){
 2. 哪些錯題其實是同一個漏洞造成的
 3. 剩下天數的複習順序建議（具體到考點）
 語氣直接、像老師批改考卷。
+4. 提到某一題時，一律照抄錯題清單方括號裡的完整題號，例如「114-2 公告試題第 8 題」「第 3 回第 12 題」，不要只寫「第 8 題」（不同卷的題號會重複，網頁會把完整題號做成連結）。
 
 各小節正確率（答對/作答）：
 ${secLine}
@@ -996,7 +1009,7 @@ ${secLine}
 未畢業錯題：
 ${wrongs || "（無）"}`;
   try {
-    await sampleFn(prompt, {modelTier: "default", onText: ({text}) => { aiText = text; const o = $("#aiout"); if (o) o.textContent = text; }});
+    await sampleFn(prompt, {modelTier: "default", onText: ({text}) => { aiText = text; const o = $("#aiout"); if (o) o.innerHTML = aiHTML(text); }});
   } catch(e) { aiText = e?.code === "rate_limited" ? "請求太頻繁，過幾分鐘再按一次。" : "這次沒有產生診斷，稍後再試。"; }
   aiBusy = false; render();
 }
