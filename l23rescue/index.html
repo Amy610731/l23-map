@@ -97,10 +97,40 @@ footer{font-size:13px;color:var(--muted)}
 .embed .sel{outline:2px solid var(--red);outline-offset:-2px}
 .embed-tip{display:none}
 .embed .embed-tip{display:block}
+.theme-btn{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:50;border-radius:999px;padding:6px 14px;font-size:15px;box-shadow:0 2px 10px rgba(0,0,0,.18)}
 </style>
+<script>
+/* 黑底／白底：她按過就記住（l23rescue-theme）；沒按過時，網址 ?theme=dark|light 優先，嵌在陪讀裡預設黑底，其他跟著系統 */
+(function(){
+  var t = null;
+  try { t = localStorage.getItem("l23rescue-theme"); } catch (e) {}
+  if (!t) { var m = location.search.match(/[?&]theme=(dark|light)/); if (m) t = m[1]; }
+  if (!t && window.parent !== window) t = "dark";
+  if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+})();
+</script>
 
 </head>
 <body>
+<button type="button" class="theme-btn" id="themeBtn" aria-label="切換黑底或白底"></button>
+<script>
+(function(){
+  var root = document.documentElement, btn = document.getElementById("themeBtn");
+  function isDark(){
+    var t = root.getAttribute("data-theme");
+    if (t) return t === "dark";
+    return !!(window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+  }
+  function label(){ btn.textContent = isDark() ? "☀️ 白底" : "🌙 黑底"; }
+  btn.addEventListener("click", function(){
+    var next = isDark() ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("l23rescue-theme", next); } catch (e) {}
+    label();
+  });
+  label();
+})();
+</script>
 <div class="wrap">
 <header>
   <div>
