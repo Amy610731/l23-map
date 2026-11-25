@@ -2,7 +2,7 @@ window.MAP_DATA = {
  "meta": {
   "pageTitle": "資安中級科目一星圖",
   "brandSmall": "iPAS 資訊安全工程師・中級・科目一 資訊安全規劃實務",
-  "brandBig": "資安規劃星圖",
+  "brandBig": "資安(中級)星圖 科目一",
   "examDate": "",
   "examLabel": "",
   "storePrefix": "sec21map",
